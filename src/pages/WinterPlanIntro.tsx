@@ -1,10 +1,10 @@
-import { useNavigate } from 'react-router-dom'
 import { IconInfoCircle, IconLock } from '@tabler/icons-react'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
 import LockedCalendar from '../components/Calendar/LockedCalendar'
+import { useAppNavigation } from '../hooks/useAppNavigation'
 
 export default function WinterPlanIntro() {
-  const navigate = useNavigate()
+  const navigate = useAppNavigation()
 
   const handlePreparePlan = () => {
     // Placeholder URL - will be replaced with real availability flow

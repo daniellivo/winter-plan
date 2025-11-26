@@ -1,4 +1,5 @@
 import { IconChevronLeft, IconInfoCircle } from '@tabler/icons-react'
+import { useAppNavigation } from '../../hooks/useAppNavigation'
 import { useNavigate } from 'react-router-dom'
 
 interface HeaderProps {
@@ -10,13 +11,14 @@ interface HeaderProps {
 }
 
 export default function Header({ title, showBack, showInfo, onInfoClick, backPath }: HeaderProps) {
+  const navigateWithParams = useAppNavigation()
   const navigate = useNavigate()
 
   const handleBack = () => {
     if (backPath) {
-      navigate(backPath)
+      navigateWithParams(backPath)
     } else {
-      navigate(-1)
+      navigate(-1) // Browser back preserves URL params naturally
     }
   }
 

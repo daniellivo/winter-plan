@@ -1,6 +1,17 @@
 import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../types/winterPlan'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app'
+// ⚠️ TODO: Reemplazar con la URL real de tu API
+// Ejemplo: 'https://livomarketing.app.n8n.cloud/webhook/tu-endpoint'
+// o 'https://api.livo.app/v1'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app/winter-plan'
+
+// API response type - wraps shiftDetails
+interface ShiftDetailsResponse {
+  shiftDetails: ShiftDetails
+}
+
+// Storage key for shifts data
+const SHIFTS_STORAGE_KEY = 'winter_plan_shifts_data'
 
 // Mutable state for mocks - this simulates a backend database
 let mockShiftsState: Map<string, Shift['status']> = new Map()
@@ -153,7 +164,60 @@ const mockCancellationPolicy: CancellationPolicy = {
 }
 
 // Use mocks in development, real API in production
-const USE_MOCKS = true
+const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
+
+// Transform API response to WinterPlan format
+function transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], professionalId: string): WinterPlan {
+  // Group shifts by month and date
+  const monthsMap = new Map<string, Map<string, Shift[]>>()
+  
+  shiftsResponse.forEach(({ shiftDetails }) => {
+    const date = shiftDetails.date // YYYY-MM-DD
+    const month = date.substring(0, 7) // YYYY-MM
+    
+    if (!monthsMap.has(month)) {
+      monthsMap.set(month, new Map())
+    }
+    
+    const daysMap = monthsMap.get(month)!
+    if (!daysMap.has(date)) {
+      daysMap.set(date, [])
+    }
+    
+    // Determine shift label based on start time
+    let label = 'TM' // Default morning
+    const hour = parseInt(shiftDetails.startTime.split(':')[0])
+    if (hour >= 14 && hour < 21) label = 'TT' // Afternoon
+    else if (hour >= 21 || hour < 7) label = 'TN' // Night
+    
+    daysMap.get(date)!.push({
+      id: shiftDetails.id,
+      label,
+      startTime: shiftDetails.startTime,
+      endTime: shiftDetails.endTime,
+      facilityName: shiftDetails.facility.name,
+      unit: shiftDetails.unit,
+      field: shiftDetails.field,
+      status: 'pending'
+    })
+  })
+  
+  // Convert maps to arrays
+  const months = Array.from(monthsMap.entries()).map(([month, daysMap]) => ({
+    month,
+    days: Array.from(daysMap.entries()).map(([date, shifts]) => ({
+      date,
+      shifts
+    }))
+  }))
+  
+  return {
+    professionalId,
+    status: 'ready',
+    generatedAt: new Date().toISOString(),
+    months
+  }
+}
 
 export async function getWinterPlan(professionalId: string, month?: string): Promise<WinterPlan> {
   if (USE_MOCKS) {
@@ -161,21 +225,33 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     return buildMockWinterPlan()
   }
   
+  // First, try to use stored shifts data (from receiveShiftsData)
+  const storedShifts = getStoredShiftsData()
+  if (storedShifts && storedShifts.length > 0) {
+    console.log('📦 Using stored shifts data:', storedShifts.length, 'shifts')
+    await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
+    return transformShiftsToWinterPlan(storedShifts, professionalId)
+  }
+  
+  // If no stored data, fetch from API
+  console.log('🌐 Fetching shifts from API...')
   const params = new URLSearchParams()
   if (month) params.append('month', month)
   
   const response = await fetch(
-    `${API_BASE_URL}/winter-plan/professionals/${professionalId}?${params}`,
+    `${API_BASE_URL}/professionals/${professionalId}?${params}`,
     {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`,
         'X-Professional-Id': professionalId
       }
     }
   )
   
   if (!response.ok) throw new Error('Failed to fetch winter plan')
-  return response.json()
+  
+  const data: ShiftDetailsResponse[] = await response.json()
+  return transformShiftsToWinterPlan(data, professionalId)
 }
 
 export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
@@ -184,14 +260,29 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
     return { ...mockShiftDetails, id: shiftId }
   }
   
-  const response = await fetch(`${API_BASE_URL}/winter-plan/shifts/${shiftId}`, {
+  // First, try to find in stored shifts data
+  const storedShifts = getStoredShiftsData()
+  if (storedShifts) {
+    const foundShift = storedShifts.find(item => item.shiftDetails.id === shiftId)
+    if (foundShift) {
+      console.log('📦 Using stored shift details for:', shiftId)
+      await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
+      return foundShift.shiftDetails
+    }
+  }
+  
+  // If not found in storage, fetch from API
+  console.log('🌐 Fetching shift details from API:', shiftId)
+  const response = await fetch(`${API_BASE_URL}/shifts/${shiftId}`, {
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
+      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
     }
   })
   
   if (!response.ok) throw new Error('Failed to fetch shift details')
-  return response.json()
+  
+  const data: ShiftDetailsResponse = await response.json()
+  return data.shiftDetails
 }
 
 export async function claimShift(shiftId: string, professionalId: string): Promise<{ status: string; claimId: string }> {
@@ -206,7 +297,7 @@ export async function claimShift(shiftId: string, professionalId: string): Promi
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
+      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
     },
     body: JSON.stringify({ professionalId, source: 'winter_plan' })
   })
@@ -231,7 +322,7 @@ export async function sendFeedback(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
+      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
     },
     body: JSON.stringify({ professionalId, reason, source: 'winter_plan' })
   })
@@ -248,10 +339,85 @@ export async function getCancellationPolicy(policyId: string): Promise<Cancellat
   
   const response = await fetch(`${API_BASE_URL}/winter-plan/cancellation-policies/${policyId}`, {
     headers: {
-      'Authorization': `Bearer ${localStorage.getItem('token')}`
+      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
     }
   })
   
   if (!response.ok) throw new Error('Failed to fetch cancellation policy')
   return response.json()
+}
+
+/**
+ * Receive and store shifts data (POST endpoint)
+ * This allows external systems (like n8n) to push shift data to the app
+ * 
+ * @param shiftsData - Array of shift details wrapped in shiftDetails objects
+ * @param professionalId - ID of the professional (optional, for validation)
+ * @returns Success status
+ */
+export async function receiveShiftsData(
+  shiftsData: ShiftDetailsResponse[],
+  professionalId?: string
+): Promise<{ status: string; count: number }> {
+  try {
+    // Validate data structure
+    if (!Array.isArray(shiftsData)) {
+      throw new Error('Invalid data format: expected array')
+    }
+
+    // Validate each shift has the required structure
+    const validShifts = shiftsData.filter(item => 
+      item.shiftDetails && 
+      item.shiftDetails.id && 
+      item.shiftDetails.date
+    )
+
+    if (validShifts.length === 0) {
+      throw new Error('No valid shifts found in data')
+    }
+
+    // If professionalId is provided, filter shifts for that professional
+    const filteredShifts = professionalId
+      ? validShifts.filter(item => item.shiftDetails.professionalId === professionalId)
+      : validShifts
+
+    // Store in sessionStorage (persists during the session)
+    sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(filteredShifts))
+
+    console.log(`✅ Received and stored ${filteredShifts.length} shifts`)
+
+    return {
+      status: 'success',
+      count: filteredShifts.length
+    }
+  } catch (error) {
+    console.error('❌ Error receiving shifts data:', error)
+    throw error
+  }
+}
+
+/**
+ * Get stored shifts data from sessionStorage
+ * This is used internally to retrieve shifts that were pushed via receiveShiftsData
+ * 
+ * @returns Array of shift details or null if no data stored
+ */
+export function getStoredShiftsData(): ShiftDetailsResponse[] | null {
+  try {
+    const stored = sessionStorage.getItem(SHIFTS_STORAGE_KEY)
+    if (!stored) return null
+    
+    return JSON.parse(stored)
+  } catch (error) {
+    console.error('❌ Error reading stored shifts:', error)
+    return null
+  }
+}
+
+/**
+ * Clear stored shifts data
+ */
+export function clearStoredShiftsData(): void {
+  sessionStorage.removeItem(SHIFTS_STORAGE_KEY)
+  console.log('🗑️ Cleared stored shifts data')
 }

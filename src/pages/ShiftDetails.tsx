@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { 
   IconStar, 
   IconMapPin, 
@@ -19,11 +19,12 @@ import PrimaryButton from '../components/Buttons/PrimaryButton'
 import SecondaryButton from '../components/Buttons/SecondaryButton'
 import { getShiftDetails, claimShift, sendFeedback } from '../api/winterPlan'
 import { useAppContext } from '../App'
+import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { ShiftDetails as ShiftDetailsType, FeedbackReason } from '../types/winterPlan'
 
 export default function ShiftDetails() {
   const { shiftId } = useParams<{ shiftId: string }>()
-  const navigate = useNavigate()
+  const navigate = useAppNavigation()
   const { professionalId } = useAppContext()
   
   const [shift, setShift] = useState<ShiftDetailsType | null>(null)

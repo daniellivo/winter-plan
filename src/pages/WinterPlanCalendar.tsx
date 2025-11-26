@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { IconInfoCircle } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
 import { getWinterPlan, claimShift, sendFeedback } from '../api/winterPlan'
 import { useAppContext } from '../App'
+import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { WinterPlan, Shift } from '../types/winterPlan'
 
 export default function WinterPlanCalendar() {
-  const navigate = useNavigate()
+  const navigate = useAppNavigation()
   const { professionalId } = useAppContext()
   
   const [plan, setPlan] = useState<WinterPlan | null>(null)

@@ -5,11 +5,11 @@ import WinterPlanCalendar from './pages/WinterPlanCalendar'
 import WinterPlanInfo from './pages/WinterPlanInfo'
 import ShiftDetails from './pages/ShiftDetails'
 import CancellationPolicy from './pages/CancellationPolicy'
+import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 
 // Webhook URL for tracking sessions
-// ⚠️ IMPORTANTE: Cambiar a 'webhook' cuando el workflow esté activo en n8n
-// Para testing: usar 'webhook-test' y tener el panel de test abierto en n8n
-const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/104d7026-2f4f-4f50-b427-1f129f060fa6'
+// ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
+const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/104d7026-2f4f-4f50-b427-1f129f060fa6'
 
 // Context to share URL params across all pages
 interface AppContextType {
@@ -24,18 +24,8 @@ const AppContext = createContext<AppContextType>({
 
 export const useAppContext = () => useContext(AppContext)
 
-// Append professionalId to the webhook URL query string
-function buildWebhookUrl(professionalId: string) {
-  const url = new URL(WEBHOOK_URL)
-  url.searchParams.set('professionalId', professionalId)
-  return url.toString()
-}
-
 // Send session start to webhook - executes immediately
 function notifySessionStart(professionalId: string) {
-  const webhookUrl = buildWebhookUrl(professionalId)
-  console.log('🚀 Sending webhook for professionalId via URL:', webhookUrl)
-  
   const payload = {
     event: 'session_start',
     professionalId,
@@ -44,29 +34,21 @@ function notifySessionStart(professionalId: string) {
     url: window.location.href
   }
 
-  // Method 1: Try sendBeacon (fire-and-forget, works well in WebViews)
-  if (navigator.sendBeacon) {
-    const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' })
-    const beaconSent = navigator.sendBeacon(webhookUrl, blob)
-    
-    if (beaconSent) {
-      console.log('✅ Webhook sent via sendBeacon')
-      return
-    }
-  }
+  console.log('🚀 Sending webhook with payload:', payload)
+  console.log('🚀 Webhook URL:', WEBHOOK_URL)
 
-  // Method 2: Fallback to fetch with keepalive to avoid unload cancellations
-  console.log('⚠️ sendBeacon not available or failed, trying fetch fallback...')
-  fetch(webhookUrl, {
+  // Send POST with JSON body (n8n expects data in body, not URL params)
+  // Use no-cors mode to bypass CORS restrictions (webhook will still receive the data)
+  fetch(WEBHOOK_URL, {
     method: 'POST',
     mode: 'no-cors',
     headers: {
-      'Content-Type': 'text/plain',
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify(payload),
     keepalive: true
   })
-    .then(() => console.log('✅ Webhook sent via fetch'))
+    .then(() => console.log('✅ Webhook sent successfully (no-cors mode)'))
     .catch((error) => console.error('❌ Failed to notify webhook:', error))
 }
 
@@ -138,6 +120,7 @@ function App() {
         <Route path="/winter-plan/shifts/:shiftId" element={<ShiftDetails />} />
         <Route path="/winter-plan/cancellation-policy/:policyId" element={<CancellationPolicy />} />
         <Route path="/winter-plan/cancellation-policy" element={<CancellationPolicy />} />
+        <Route path="/winter-plan/receive-data" element={<ShiftsDataReceiver />} />
       </Routes>
     </AppContext.Provider>
   )

@@ -50,7 +50,8 @@ export interface ShiftTags {
   parking: boolean
   food: boolean
   cafeteria: boolean
-  casiopea: boolean
+  programa?: string // "casiopea" or other programs
+  casiopea?: boolean // legacy support
 }
 
 export interface ShiftDetails {
