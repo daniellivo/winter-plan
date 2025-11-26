@@ -5,6 +5,9 @@ import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../typ
 // o 'https://api.livo.app/v1'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app/winter-plan'
 
+// Proxy server URL for local development with HTTP POST
+const PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
+
 // API response type - wraps shiftDetails
 interface ShiftDetailsResponse {
   shiftDetails: ShiftDetails
@@ -225,7 +228,7 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     return buildMockWinterPlan()
   }
   
-  // First, try to use stored shifts data (from receiveShiftsData)
+  // First, try to use stored shifts data (from receiveShiftsData or POST endpoint)
   const storedShifts = getStoredShiftsData()
   if (storedShifts && storedShifts.length > 0) {
     console.log('📦 Using stored shifts data:', storedShifts.length, 'shifts')
@@ -233,8 +236,25 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     return transformShiftsToWinterPlan(storedShifts, professionalId)
   }
   
-  // If no stored data, fetch from API
-  console.log('🌐 Fetching shifts from API...')
+  // Second, try to fetch from proxy server (if available)
+  try {
+    console.log('🔄 Trying proxy server...')
+    const proxyResponse = await fetch(`${PROXY_SERVER_URL}/api/shifts/${professionalId}`)
+    if (proxyResponse.ok) {
+      const proxyData = await proxyResponse.json()
+      if (proxyData.status === 'success' && proxyData.data) {
+        console.log('✅ Got data from proxy server')
+        // Store in sessionStorage for future use
+        sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(proxyData.data))
+        return transformShiftsToWinterPlan(proxyData.data, professionalId)
+      }
+    }
+  } catch (error) {
+    console.log('⚠️ Proxy server not available, trying main API...')
+  }
+  
+  // Finally, fetch from main API
+  console.log('🌐 Fetching shifts from main API...')
   const params = new URLSearchParams()
   if (month) params.append('month', month)
   

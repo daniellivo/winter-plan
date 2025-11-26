@@ -557,3 +557,75 @@ VITE_API_BASE_URL=https://api.livo.app
 ```
 
 > **Nota:** Actualmente la app usa mocks de datos. Para conectar con una API real, editar `USE_MOCKS = false` en `src/api/winterPlan.ts`.
+
+---
+
+## 9. Despliegue en GitHub Pages
+
+Este proyecto está configurado para desplegarse automáticamente en GitHub Pages.
+
+### Configuración inicial
+
+1. **Crear repositorio en GitHub** (si no existe):
+   - Ve a [github.com](https://github.com) y crea un nuevo repositorio
+   - Nombra el repositorio (ejemplo: `winter-plan`)
+
+2. **Actualizar el nombre base en `vite.config.ts`**:
+   ```typescript
+   export default defineConfig({
+     base: '/nombre-de-tu-repositorio/',  // ⚠️ Importante: debe coincidir con el nombre del repo
+     // ...
+   })
+   ```
+
+3. **Subir el código a GitHub**:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git branch -M main
+   git remote add origin https://github.com/tu-usuario/nombre-de-tu-repo.git
+   git push -u origin main
+   ```
+
+4. **Habilitar GitHub Pages**:
+   - Ve a tu repositorio en GitHub
+   - Settings → Pages
+   - En "Source", selecciona **GitHub Actions**
+
+### Despliegue automático
+
+Una vez configurado, cada vez que hagas `push` a la rama `main`, el workflow de GitHub Actions se ejecutará automáticamente y desplegará tu aplicación.
+
+El sitio estará disponible en:
+```
+https://tu-usuario.github.io/nombre-de-tu-repo/
+```
+
+### Despliegue manual
+
+También puedes desplegar manualmente usando el script npm:
+
+```bash
+npm run deploy
+```
+
+Este comando:
+1. Construye la aplicación (`npm run build`)
+2. Publica el contenido de `dist/` en la rama `gh-pages`
+
+> **Nota:** Para el despliegue manual, asegúrate de que en Settings → Pages, la fuente esté configurada en **Deploy from a branch** y selecciona la rama `gh-pages`.
+
+### Verificar el despliegue
+
+Puedes verificar el estado del despliegue en:
+- GitHub → Tu repositorio → Actions
+- Allí verás el historial de despliegues y su estado (✅ exitoso, ❌ fallido)
+
+### Solución de problemas
+
+**Problema:** La página muestra 404 o recursos no cargan
+- **Solución:** Verifica que el valor de `base` en `vite.config.ts` coincida exactamente con el nombre de tu repositorio
+
+**Problema:** El workflow falla en GitHub Actions
+- **Solución:** Verifica que tienes habilitados los permisos de escritura en Settings → Actions → General → Workflow permissions → Read and write permissions
