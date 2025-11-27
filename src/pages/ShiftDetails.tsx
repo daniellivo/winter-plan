@@ -54,8 +54,7 @@ export default function ShiftDetails() {
     try {
       setClaiming(true)
       await claimShift(shift.id, professionalId)
-      // Show success and navigate back
-      alert('¡Turno solicitado correctamente!')
+      // Navigate back to calendar
       navigate('/calendar')
     } catch {
       alert('Error al solicitar el turno')
