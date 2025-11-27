@@ -7,8 +7,8 @@ export default function WinterPlanIntro() {
   const navigate = useAppNavigation()
 
   const handlePreparePlan = () => {
-    // Placeholder URL - will be replaced with real availability flow
-    window.open('https://placeholder.livo.app/disponibilidad', '_blank')
+    // Redirect to availability update page
+    window.location.href = 'https://livo-385512.web.app/app/availability/update'
   }
 
   return (
