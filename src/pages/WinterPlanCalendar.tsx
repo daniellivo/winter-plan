@@ -312,6 +312,18 @@ export default function WinterPlanCalendar() {
           </p>
         </div>
 
+        {/* Add availability button */}
+        <div className="pb-4">
+          <button
+            onClick={() => {
+              window.location.href = 'https://livo-385512.web.app/app/AvailabilityStack'
+            }}
+            className="w-full py-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
+          >
+            Añadir más disponibilidad
+          </button>
+        </div>
+
         {/* Month selector */}
         <MonthSelector
           month={currentMonth}
@@ -353,7 +365,7 @@ export default function WinterPlanCalendar() {
                 onClick={handleCompletePlan}
                 disabled={isSubmitting || confirmedCount === 0}
                 className={`
-                  w-full py-4 rounded-2xl font-semibold text-white text-base
+                  w-full py-4 rounded-full font-semibold text-white text-base
                   flex items-center justify-center gap-2
                   transition-all duration-200
                   ${confirmedCount === 0
