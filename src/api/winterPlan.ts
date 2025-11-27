@@ -441,3 +441,48 @@ export function clearStoredShiftsData(): void {
   sessionStorage.removeItem(SHIFTS_STORAGE_KEY)
   console.log('🗑️ Cleared stored shifts data')
 }
+
+/**
+ * Send completed plan to n8n webhook
+ * Sends only the IDs of shifts that have been claimed (confirmed)
+ * 
+ * @param professionalId - ID of the professional
+ * @param confirmedShiftIds - Array of shift IDs that have been claimed
+ * @returns Success status
+ */
+export async function sendCompletedPlan(
+  professionalId: string,
+  confirmedShiftIds: string[]
+): Promise<{ status: string }> {
+  // Use the same webhook URL as session tracking
+  const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/104d7026-2f4f-4f50-b427-1f129f060fa6'
+  
+  const payload = {
+    event: 'plan_completed',
+    professionalId,
+    confirmedShiftIds,
+    timestamp: new Date().toISOString(),
+    confirmedCount: confirmedShiftIds.length
+  }
+
+  console.log('📤 Sending completed plan to webhook:', payload)
+
+  try {
+    // Use no-cors mode to bypass CORS restrictions (webhook will still receive the data)
+    await fetch(WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      keepalive: true
+    })
+    
+    console.log('✅ Completed plan sent successfully')
+    return { status: 'success' }
+  } catch (error) {
+    console.error('❌ Failed to send completed plan:', error)
+    throw error
+  }
+}
