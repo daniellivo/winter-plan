@@ -150,7 +150,7 @@ export default function ShiftDetails() {
 
   return (
     <div className="min-h-screen bg-white pb-24">
-      <Header title="Detalles del Turno" showBack backPath="/winter-plan/calendar" />
+      <Header title="Detalles del Turno" showBack backPath="/calendar" />
       
       <div className="px-5 py-4">
         {/* Facility info */}

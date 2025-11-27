@@ -316,7 +316,7 @@ export default function WinterPlanCalendar() {
         <div className="pb-4">
           <button
             onClick={() => {
-              window.location.href = 'https://livo-385512.web.app/app/AvailabilityStack'
+              window.location.href = 'https://livo-385512.web.app/app/availability/update'
             }}
             className="w-full py-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
           >
