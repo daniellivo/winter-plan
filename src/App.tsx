@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useSearchParams } from 'react-router-dom'
+import { Routes, Route, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { createContext, useContext, useEffect, useRef } from 'react'
 import WinterPlanIntro from './pages/WinterPlanIntro'
 import WinterPlanCalendar from './pages/WinterPlanCalendar'
@@ -57,7 +57,10 @@ const tokenKey = 'winter_plan_token'
 
 function App() {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const location = useLocation()
   const hasNotifiedRef = useRef(false)
+  const hasRedirectedRef = useRef(false)
   
   // Read params from URL or sessionStorage (fallback)
   let professionalId = searchParams.get('professionalId') || ''
@@ -81,14 +84,15 @@ function App() {
     notifySessionStart(professionalId)
   }, [professionalId])
 
-  // Build query string to preserve in navigation
-  const queryString = professionalId ? `?professionalId=${professionalId}${token ? `&token=${token}` : ''}` : ''
-
-  // Determine initial route based on entry param
-  const getInitialRoute = () => {
-    if (entry === 'calendar') return `/winter-plan/calendar${queryString}`
-    return `/winter-plan${queryString}`
-  }
+  // Handle entry parameter redirect
+  useEffect(() => {
+    if (!professionalId || hasRedirectedRef.current) return
+    if (entry === 'calendar' && location.pathname === '/') {
+      hasRedirectedRef.current = true
+      const queryString = professionalId ? `?professionalId=${professionalId}${token ? `&token=${token}` : ''}` : ''
+      navigate(`/calendar${queryString}`, { replace: true })
+    }
+  }, [entry, professionalId, token, location.pathname, navigate])
 
   // If no professionalId, show error
   if (!professionalId) {
@@ -102,9 +106,6 @@ function App() {
           <p className="text-sm text-gray-600">
             Esta página requiere un enlace válido con tu identificador de profesional.
           </p>
-          <p className="text-xs text-gray-400 mt-4">
-            URL esperada: ?professionalId=XXXXX
-          </p>
         </div>
       </div>
     )
@@ -113,14 +114,13 @@ function App() {
   return (
     <AppContext.Provider value={{ professionalId, token }}>
       <Routes>
-        <Route path="/" element={<Navigate to={getInitialRoute()} replace />} />
-        <Route path="/winter-plan" element={<WinterPlanIntro />} />
-        <Route path="/winter-plan/info" element={<WinterPlanInfo />} />
-        <Route path="/winter-plan/calendar" element={<WinterPlanCalendar />} />
-        <Route path="/winter-plan/shifts/:shiftId" element={<ShiftDetails />} />
-        <Route path="/winter-plan/cancellation-policy/:policyId" element={<CancellationPolicy />} />
-        <Route path="/winter-plan/cancellation-policy" element={<CancellationPolicy />} />
-        <Route path="/winter-plan/receive-data" element={<ShiftsDataReceiver />} />
+        <Route path="/" element={<WinterPlanIntro />} />
+        <Route path="/info" element={<WinterPlanInfo />} />
+        <Route path="/calendar" element={<WinterPlanCalendar />} />
+        <Route path="/shifts/:shiftId" element={<ShiftDetails />} />
+        <Route path="/cancellation-policy/:policyId" element={<CancellationPolicy />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
+        <Route path="/receive-data" element={<ShiftsDataReceiver />} />
       </Routes>
     </AppContext.Provider>
   )

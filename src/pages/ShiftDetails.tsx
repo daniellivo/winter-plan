@@ -56,7 +56,7 @@ export default function ShiftDetails() {
       await claimShift(shift.id, professionalId)
       // Show success and navigate back
       alert('¡Turno solicitado correctamente!')
-      navigate('/winter-plan/calendar')
+      navigate('/calendar')
     } catch {
       alert('Error al solicitar el turno')
     } finally {
@@ -68,7 +68,7 @@ export default function ShiftDetails() {
     if (!shift) return
     try {
       await sendFeedback(shift.id, professionalId, 'not_interested')
-      navigate('/winter-plan/calendar')
+      navigate('/calendar')
     } catch {
       alert('Error al enviar feedback')
     }
@@ -251,7 +251,7 @@ export default function ShiftDetails() {
         {/* Cancellation policy */}
         <div className="border-t border-gray-100 pt-4 mb-6">
           <button 
-            onClick={() => navigate('/winter-plan/cancellation-policy/winter_default')}
+            onClick={() => navigate('/cancellation-policy/winter_default')}
             className="w-full flex items-center justify-between py-2"
           >
             <span className="font-semibold text-gray-900">Política de cancelación</span>

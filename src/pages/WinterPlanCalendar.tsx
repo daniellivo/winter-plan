@@ -65,7 +65,7 @@ export default function WinterPlanCalendar() {
 
   const handleDayClick = (date: string, shifts: Shift[]) => {
     if (shifts.length === 1) {
-      navigate(`/winter-plan/shifts/${shifts[0].id}`)
+      navigate(`/shifts/${shifts[0].id}`)
     } else if (shifts.length > 1) {
       setSelectedShifts(shifts)
       setSelectedDate(date)
@@ -74,7 +74,7 @@ export default function WinterPlanCalendar() {
 
   const handleShiftSelect = (shiftId: string) => {
     closeModal()
-    navigate(`/winter-plan/shifts/${shiftId}`)
+    navigate(`/shifts/${shiftId}`)
   }
 
   const handleClaimFromModal = async (shiftId: string) => {
@@ -291,7 +291,7 @@ export default function WinterPlanCalendar() {
             🎄 Aquí está tu Calendario 🎄
           </h1>
           <button 
-            onClick={() => navigate('/winter-plan/info')}
+            onClick={() => navigate('/info')}
             className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
           >
             <IconInfoCircle size={20} />

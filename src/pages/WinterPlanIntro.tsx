@@ -21,7 +21,7 @@ export default function WinterPlanIntro() {
             🎄 Planifica tu Invierno 🎄
           </h1>
           <button 
-            onClick={() => navigate('/winter-plan/info')}
+            onClick={() => navigate('/info')}
             className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
           >
             <IconInfoCircle size={20} />
@@ -73,7 +73,7 @@ export default function WinterPlanIntro() {
         {/* Secondary CTA - Ver calendario */}
         <div className="mb-8">
           <button
-            onClick={() => navigate('/winter-plan/calendar')}
+            onClick={() => navigate('/calendar')}
             className="w-full py-3 px-6 text-[#2cbeff] font-semibold text-base border-2 border-[#2cbeff] rounded-full hover:bg-[#2cbeff]/5 transition-colors"
           >
             Ver mi calendario 📅
