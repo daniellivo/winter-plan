@@ -23,16 +23,10 @@ let mockShiftsState: Map<string, Shift['status']> = new Map()
 const initializeShiftStates = () => {
   if (mockShiftsState.size === 0) {
     // All shifts start as pending by default
-    mockShiftsState.set('shift_001', 'pending')
-    mockShiftsState.set('shift_002', 'pending')
-    mockShiftsState.set('shift_003', 'pending')
-    mockShiftsState.set('shift_004', 'pending')
-    mockShiftsState.set('shift_005', 'pending')
-    mockShiftsState.set('shift_006', 'pending')
-    mockShiftsState.set('shift_007', 'pending')
-    mockShiftsState.set('shift_008', 'pending')
-    mockShiftsState.set('shift_009', 'pending')
-    mockShiftsState.set('shift_010', 'pending')
+    for (let i = 1; i <= 30; i++) {
+      const shiftId = `shift_${String(i).padStart(3, '0')}`
+      mockShiftsState.set(shiftId, 'pending')
+    }
   }
 }
 
@@ -61,12 +55,31 @@ const buildMockWinterPlan = (): WinterPlan => {
         month: '2025-12',
         days: [
           {
+            date: '2025-12-05',
+            shifts: [
+              { id: 'shift_011', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Universitario Vall d\'Hebron', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_011') },
+              { id: 'shift_012', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital de la Santa Creu i Sant Pau', unit: 'Cirugía', field: 'Quirófano', status: getShiftStatus('shift_012') },
+              { id: 'shift_013', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_013') }
+            ].filter(s => s.status !== 'rejected')
+          },
+          {
             date: '2025-12-10',
             shifts: [
               { id: 'shift_001', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_001') },
               { id: 'shift_002', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_002') },
+              { id: 'shift_014', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital del Mar', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_014') },
+              { id: 'shift_015', label: 'TT', startTime: '14:30', endTime: '21:30', facilityName: 'Hospital Vall d\'Hebron', unit: 'Oncología', field: 'Hospitalización', status: getShiftStatus('shift_015') },
               { id: 'shift_003', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_003') }
-            ].filter(s => s.status !== 'rejected') // Hide rejected shifts
+            ].filter(s => s.status !== 'rejected')
+          },
+          {
+            date: '2025-12-15',
+            shifts: [
+              { id: 'shift_016', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Sant Joan de Déu', unit: 'Pediatría', field: 'Hospitalización', status: getShiftStatus('shift_016') },
+              { id: 'shift_017', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_017') },
+              { id: 'shift_018', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_018') },
+              { id: 'shift_019', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital Germans Trias i Pujol', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_019') }
+            ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-18',
@@ -77,7 +90,11 @@ const buildMockWinterPlan = (): WinterPlan => {
           {
             date: '2025-12-20',
             shifts: [
+              { id: 'shift_020', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Parc Taulí', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_020') },
+              { id: 'shift_021', label: 'TM', startTime: '07:30', endTime: '14:30', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_021') },
+              { id: 'shift_022', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Neurología', field: 'Quirófano', status: getShiftStatus('shift_022') },
               { id: 'shift_005', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_005') },
+              { id: 'shift_023', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_023') },
               { id: 'shift_006', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Neurología', field: 'Intensivos', status: getShiftStatus('shift_006') }
             ].filter(s => s.status !== 'rejected')
           },
@@ -86,6 +103,14 @@ const buildMockWinterPlan = (): WinterPlan => {
             shifts: [
               { id: 'shift_007', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Oncología', field: 'Enfermería', status: getShiftStatus('shift_007') },
               { id: 'shift_008', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Medicina Interna', field: 'Enfermería', status: getShiftStatus('shift_008') }
+            ].filter(s => s.status !== 'rejected')
+          },
+          {
+            date: '2025-12-27',
+            shifts: [
+              { id: 'shift_024', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital Clínic', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_024') },
+              { id: 'shift_025', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_025') },
+              { id: 'shift_026', label: 'TN', startTime: '21:30', endTime: '07:30', facilityName: 'Hospital Germans Trias', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_026') }
             ].filter(s => s.status !== 'rejected')
           }
         ].filter(d => d.shifts.length > 0) // Hide days with no shifts
@@ -97,6 +122,15 @@ const buildMockWinterPlan = (): WinterPlan => {
             date: '2026-01-05',
             shifts: [
               { id: 'shift_009', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_009') }
+            ].filter(s => s.status !== 'rejected')
+          },
+          {
+            date: '2026-01-08',
+            shifts: [
+              { id: 'shift_027', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_027') },
+              { id: 'shift_028', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_028') },
+              { id: 'shift_029', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_029') },
+              { id: 'shift_030', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Sant Pau', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_030') }
             ].filter(s => s.status !== 'rejected')
           },
           {

@@ -11,6 +11,11 @@ interface CalendarProps {
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
 
+interface ShiftTypeGroup {
+  label: string
+  hasConfirmed: boolean
+}
+
 export default function Calendar({ year, month, days, onDayClick }: CalendarProps) {
   const calendarGrid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
@@ -46,6 +51,25 @@ export default function Calendar({ year, month, days, onDayClick }: CalendarProp
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
+  // Group shifts by type and check if any are confirmed
+  const getShiftTypeGroups = (shifts: DayShifts['shifts']): ShiftTypeGroup[] => {
+    const groups = new Map<string, boolean>()
+    
+    shifts.forEach(shift => {
+      const hasConfirmed = groups.get(shift.label) || shift.status === 'claimed'
+      groups.set(shift.label, hasConfirmed)
+    })
+
+    // Return in order: TM, TT, TN
+    const order = ['TM', 'TT', 'TN']
+    return order
+      .filter(label => groups.has(label))
+      .map(label => ({
+        label,
+        hasConfirmed: groups.get(label) || false
+      }))
+  }
+
   return (
     <div className="w-full">
       {/* Weekday headers */}
@@ -66,6 +90,7 @@ export default function Calendar({ year, month, days, onDayClick }: CalendarProp
           
           const shifts = getShiftsForDay(day)
           const hasShifts = shifts.length > 0
+          const shiftTypeGroups = getShiftTypeGroups(shifts)
           
           return (
             <div
@@ -81,11 +106,11 @@ export default function Calendar({ year, month, days, onDayClick }: CalendarProp
               </div>
               
               <div className="flex flex-col gap-0.5 items-center">
-                {shifts.slice(0, 3).map((shift) => (
+                {shiftTypeGroups.map((group) => (
                   <ShiftChip 
-                    key={shift.id} 
-                    label={shift.label} 
-                    confirmed={shift.status === 'claimed'}
+                    key={group.label} 
+                    label={group.label} 
+                    confirmed={group.hasConfirmed}
                   />
                 ))}
               </div>
