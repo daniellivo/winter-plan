@@ -148,7 +148,7 @@ export default function WinterPlanCalendar() {
       
       // Redirect to app after short delay
       setTimeout(() => {
-        window.location.href = 'https://livo-385512.web.app/app/availability/update'
+        window.location.href = 'https://livo-385512.web.app/app/CalendarStack'
       }, 1500)
       
     } catch (error) {
@@ -349,7 +349,7 @@ export default function WinterPlanCalendar() {
                 ) : (
                   <>
                     <IconCheck size={22} strokeWidth={2.5} />
-                    <span>Plan completado</span>
+                    <span>Confirma tus turnos</span>
                   </>
                 )}
               </button>

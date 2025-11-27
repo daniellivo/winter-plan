@@ -7,6 +7,7 @@ export interface Shift {
   unit?: string
   field?: string
   status?: 'pending' | 'claimed' | 'rejected'
+  price?: number
 }
 
 export interface DayShifts {

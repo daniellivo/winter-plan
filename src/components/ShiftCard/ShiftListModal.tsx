@@ -119,7 +119,7 @@ function ShiftBlock({
                 onClick={() => onSelect(shift.id)}
                 className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors cursor-pointer"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between mb-2">
                   <div className="flex-1">
                     {/* Time */}
                     <div className="flex items-center gap-2 mb-2">
@@ -178,6 +178,15 @@ function ShiftBlock({
                     </button>
                   </div>
                 </div>
+                
+                {/* Price display */}
+                {shift.price && (
+                  <div className="text-center">
+                    <span className="text-sm font-semibold text-green-600">
+                      {shift.price}€
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
           ))}

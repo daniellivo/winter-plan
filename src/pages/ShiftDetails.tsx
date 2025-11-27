@@ -20,7 +20,7 @@ import SecondaryButton from '../components/Buttons/SecondaryButton'
 import { getShiftDetails, claimShift, sendFeedback } from '../api/winterPlan'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
-import type { ShiftDetails as ShiftDetailsType, FeedbackReason } from '../types/winterPlan'
+import type { ShiftDetails as ShiftDetailsType } from '../types/winterPlan'
 
 export default function ShiftDetails() {
   const { shiftId } = useParams<{ shiftId: string }>()
@@ -30,7 +30,6 @@ export default function ShiftDetails() {
   const [shift, setShift] = useState<ShiftDetailsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [claiming, setClaiming] = useState(false)
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false)
 
   useEffect(() => {
     if (shiftId) {
@@ -65,11 +64,10 @@ export default function ShiftDetails() {
     }
   }
 
-  const handleFeedback = async (reason: FeedbackReason) => {
+  const handleNotInterested = async () => {
     if (!shift) return
     try {
-      await sendFeedback(shift.id, professionalId, reason)
-      setShowFeedbackModal(false)
+      await sendFeedback(shift.id, professionalId, 'not_interested')
       navigate('/winter-plan/calendar')
     } catch {
       alert('Error al enviar feedback')
@@ -282,10 +280,9 @@ export default function ShiftDetails() {
       <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white border-t border-gray-100 p-4">
         <div className="flex gap-3">
           <SecondaryButton 
-            onClick={() => setShowFeedbackModal(true)}
-            showChevron
+            onClick={handleNotInterested}
           >
-            No me conviene
+            No me interesa
           </SecondaryButton>
           <div className="flex-1">
             <PrimaryButton onClick={handleClaim} disabled={claiming}>
@@ -294,42 +291,6 @@ export default function ShiftDetails() {
           </div>
         </div>
       </div>
-
-      {/* Feedback modal */}
-      {showFeedbackModal && (
-        <>
-          <div 
-            className="fixed inset-0 bg-black/50 z-50"
-            onClick={() => setShowFeedbackModal(false)}
-          />
-          <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-2xl z-50 p-4">
-            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 text-center">
-              ¿Por qué no te conviene?
-            </h3>
-            <div className="space-y-3">
-              <button
-                onClick={() => handleFeedback('not_available')}
-                className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
-              >
-                <p className="font-medium text-gray-900">No quiero trabajar este día</p>
-              </button>
-              <button
-                onClick={() => handleFeedback('not_interested')}
-                className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors"
-              >
-                <p className="font-medium text-gray-900">No me convence</p>
-              </button>
-            </div>
-            <button
-              onClick={() => setShowFeedbackModal(false)}
-              className="w-full mt-4 py-3 text-gray-600 font-medium"
-            >
-              Cancelar
-            </button>
-          </div>
-        </>
-      )}
     </div>
   )
 }

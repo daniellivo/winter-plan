@@ -57,60 +57,60 @@ const buildMockWinterPlan = (): WinterPlan => {
           {
             date: '2025-12-05',
             shifts: [
-              { id: 'shift_011', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Universitario Vall d\'Hebron', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_011') },
-              { id: 'shift_012', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital de la Santa Creu i Sant Pau', unit: 'Cirugía', field: 'Quirófano', status: getShiftStatus('shift_012') },
-              { id: 'shift_013', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_013') }
+              { id: 'shift_011', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Universitario Vall d\'Hebron', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_011'), price: 270 },
+              { id: 'shift_012', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital de la Santa Creu i Sant Pau', unit: 'Cirugía', field: 'Quirófano', status: getShiftStatus('shift_012'), price: 265 },
+              { id: 'shift_013', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_013'), price: 280 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-10',
             shifts: [
-              { id: 'shift_001', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_001') },
-              { id: 'shift_002', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_002') },
-              { id: 'shift_014', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital del Mar', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_014') },
-              { id: 'shift_015', label: 'TT', startTime: '14:30', endTime: '21:30', facilityName: 'Hospital Vall d\'Hebron', unit: 'Oncología', field: 'Hospitalización', status: getShiftStatus('shift_015') },
-              { id: 'shift_003', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_003') }
+              { id: 'shift_001', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_001'), price: 275 },
+              { id: 'shift_002', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_002'), price: 285 },
+              { id: 'shift_014', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital del Mar', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_014'), price: 280 },
+              { id: 'shift_015', label: 'TT', startTime: '14:30', endTime: '21:30', facilityName: 'Hospital Vall d\'Hebron', unit: 'Oncología', field: 'Hospitalización', status: getShiftStatus('shift_015'), price: 290 },
+              { id: 'shift_003', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_003'), price: 310 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-15',
             shifts: [
-              { id: 'shift_016', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Sant Joan de Déu', unit: 'Pediatría', field: 'Hospitalización', status: getShiftStatus('shift_016') },
-              { id: 'shift_017', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_017') },
-              { id: 'shift_018', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_018') },
-              { id: 'shift_019', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital Germans Trias i Pujol', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_019') }
+              { id: 'shift_016', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Sant Joan de Déu', unit: 'Pediatría', field: 'Hospitalización', status: getShiftStatus('shift_016'), price: 260 },
+              { id: 'shift_017', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_017'), price: 280 },
+              { id: 'shift_018', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_018'), price: 300 },
+              { id: 'shift_019', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital Germans Trias i Pujol', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_019'), price: 320 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-18',
             shifts: [
-              { id: 'shift_004', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_004') }
+              { id: 'shift_004', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_004'), price: 275 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-20',
             shifts: [
-              { id: 'shift_020', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Parc Taulí', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_020') },
-              { id: 'shift_021', label: 'TM', startTime: '07:30', endTime: '14:30', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_021') },
-              { id: 'shift_022', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Neurología', field: 'Quirófano', status: getShiftStatus('shift_022') },
-              { id: 'shift_005', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_005') },
-              { id: 'shift_023', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_023') },
-              { id: 'shift_006', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Neurología', field: 'Intensivos', status: getShiftStatus('shift_006') }
+              { id: 'shift_020', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Parc Taulí', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_020'), price: 270 },
+              { id: 'shift_021', label: 'TM', startTime: '07:30', endTime: '14:30', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_021'), price: 265 },
+              { id: 'shift_022', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital Clínic', unit: 'Neurología', field: 'Quirófano', status: getShiftStatus('shift_022'), price: 280 },
+              { id: 'shift_005', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_005'), price: 285 },
+              { id: 'shift_023', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_023'), price: 275 },
+              { id: 'shift_006', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Neurología', field: 'Intensivos', status: getShiftStatus('shift_006'), price: 310 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-23',
             shifts: [
-              { id: 'shift_007', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Oncología', field: 'Enfermería', status: getShiftStatus('shift_007') },
-              { id: 'shift_008', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Medicina Interna', field: 'Enfermería', status: getShiftStatus('shift_008') }
+              { id: 'shift_007', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Oncología', field: 'Enfermería', status: getShiftStatus('shift_007'), price: 290 },
+              { id: 'shift_008', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital del Mar', unit: 'Medicina Interna', field: 'Enfermería', status: getShiftStatus('shift_008'), price: 305 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2025-12-27',
             shifts: [
-              { id: 'shift_024', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital Clínic', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_024') },
-              { id: 'shift_025', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_025') },
-              { id: 'shift_026', label: 'TN', startTime: '21:30', endTime: '07:30', facilityName: 'Hospital Germans Trias', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_026') }
+              { id: 'shift_024', label: 'TN', startTime: '21:00', endTime: '07:00', facilityName: 'Hospital Clínic', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_024'), price: 320 },
+              { id: 'shift_025', label: 'TN', startTime: '22:00', endTime: '08:00', facilityName: 'Hospital del Mar', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_025'), price: 300 },
+              { id: 'shift_026', label: 'TN', startTime: '21:30', endTime: '07:30', facilityName: 'Hospital Germans Trias', unit: 'UCI', field: 'Intensivos', status: getShiftStatus('shift_026'), price: 315 }
             ].filter(s => s.status !== 'rejected')
           }
         ].filter(d => d.shifts.length > 0) // Hide days with no shifts
@@ -121,22 +121,22 @@ const buildMockWinterPlan = (): WinterPlan => {
           {
             date: '2026-01-05',
             shifts: [
-              { id: 'shift_009', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_009') }
+              { id: 'shift_009', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital General de Catalunya', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_009'), price: 275 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2026-01-08',
             shifts: [
-              { id: 'shift_027', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_027') },
-              { id: 'shift_028', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_028') },
-              { id: 'shift_029', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_029') },
-              { id: 'shift_030', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Sant Pau', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_030') }
+              { id: 'shift_027', label: 'TM', startTime: '07:00', endTime: '14:00', facilityName: 'Hospital Clínic', unit: 'Cardiología', field: 'Quirófano', status: getShiftStatus('shift_027'), price: 280 },
+              { id: 'shift_028', label: 'TM', startTime: '08:00', endTime: '15:00', facilityName: 'Hospital del Mar', unit: 'Traumatología', field: 'Quirófano', status: getShiftStatus('shift_028'), price: 270 },
+              { id: 'shift_029', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Vall d\'Hebron', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_029'), price: 285 },
+              { id: 'shift_030', label: 'TT', startTime: '15:00', endTime: '22:00', facilityName: 'Hospital Sant Pau', unit: 'Pediatría', field: 'Enfermería', status: getShiftStatus('shift_030'), price: 280 }
             ].filter(s => s.status !== 'rejected')
           },
           {
             date: '2026-01-12',
             shifts: [
-              { id: 'shift_010', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_010') }
+              { id: 'shift_010', label: 'TT', startTime: '14:00', endTime: '21:00', facilityName: 'Hospital Clínic', unit: 'Urgencias', field: 'Enfermería', status: getShiftStatus('shift_010'), price: 285 }
             ].filter(s => s.status !== 'rejected')
           }
         ].filter(d => d.shifts.length > 0)
