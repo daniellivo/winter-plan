@@ -171,7 +171,7 @@ export default function WinterPlanCalendar() {
       
       // Redirect to app after short delay
       setTimeout(() => {
-        window.location.href = 'https://livo-385512.web.app/app/CalendarStack'
+        window.location.href = 'https://livo-385512.web.app/app/ShiftStack/Feed?tab=SHIFTS'
       }, 1500)
       
     } catch (error) {
