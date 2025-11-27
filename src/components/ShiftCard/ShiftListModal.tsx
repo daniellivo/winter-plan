@@ -18,26 +18,27 @@ function ShiftBlock({
   label,
   onSelect,
   onClaim,
-  onReject,
   validateClaim,
-  onValidationError
+  onValidationError,
+  rejectedShiftIds,
+  onRejectShift,
+  onUnrejectShift
 }: {
   shifts: Shift[]
   label: string
   onSelect: (shiftId: string) => void
   onClaim?: (shiftId: string) => void
-  onReject?: () => void
   validateClaim: (shift: Shift) => { valid: boolean; error?: string }
   onValidationError: (error: string) => void
+  rejectedShiftIds: Set<string>
+  onRejectShift: (shiftId: string) => void
+  onUnrejectShift: (shiftId: string) => void
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [touchStart, setTouchStart] = useState(0)
   const [touchEnd, setTouchEnd] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [translateX, setTranslateX] = useState(0)
-  
-  // Local state for rejected shifts (not persisted to server)
-  const [rejectedShiftIds, setRejectedShiftIds] = useState<Set<string>>(new Set())
 
   const hasMultipleShifts = shifts.length > 1
 
@@ -78,11 +79,7 @@ function ShiftBlock({
     
     // Remove from rejected list if it was rejected
     if (rejectedShiftIds.has(shiftId)) {
-      setRejectedShiftIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(shiftId)
-        return newSet
-      })
+      onUnrejectShift(shiftId)
     }
   }
 
@@ -91,33 +88,18 @@ function ShiftBlock({
     
     // Toggle off if already rejected
     if (rejectedShiftIds.has(shiftId)) {
-      setRejectedShiftIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(shiftId)
-        return newSet
-      })
+      onUnrejectShift(shiftId)
       return
     }
     
     // Mark as rejected locally (no API call)
-    setRejectedShiftIds(prev => new Set(prev).add(shiftId))
+    onRejectShift(shiftId)
     
     // Auto-swipe to next shift
     if (hasMultipleShifts && currentIndex < shifts.length - 1) {
       setTimeout(() => {
         setCurrentIndex(currentIndex + 1)
       }, 200) // Small delay for visual feedback
-    }
-    
-    // If this was the last shift, check if all are rejected and close modal
-    if (currentIndex === shifts.length - 1) {
-      const allRejected = shifts.every(s => rejectedShiftIds.has(s.id) || s.id === shiftId)
-      if (allRejected && onReject) {
-        // Signal to parent that we should close this slot/modal
-        setTimeout(() => {
-          if (onReject) onReject()
-        }, 300)
-      }
     }
   }
 
@@ -308,6 +290,8 @@ export default function ShiftListModal({
   onReject
 }: ShiftListModalProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
+  // Global state for rejected shifts across all slots
+  const [rejectedShiftIds, setRejectedShiftIds] = useState<Set<string>>(new Set())
 
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
@@ -315,6 +299,34 @@ export default function ShiftListModal({
       weekday: 'long', 
       day: 'numeric', 
       month: 'long' 
+    })
+  }
+
+  // Handle rejecting a shift
+  const handleRejectShift = (shiftId: string) => {
+    setRejectedShiftIds(prev => {
+      const newSet = new Set(prev)
+      newSet.add(shiftId)
+      
+      // Check if ALL shifts in the day are now rejected
+      const allShiftsRejected = shifts.every(s => newSet.has(s.id))
+      if (allShiftsRejected) {
+        // Close the modal after a short delay
+        setTimeout(() => {
+          if (onReject) onReject()
+        }, 300)
+      }
+      
+      return newSet
+    })
+  }
+
+  // Handle unreject a shift (toggle off)
+  const handleUnrejectShift = (shiftId: string) => {
+    setRejectedShiftIds(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(shiftId)
+      return newSet
     })
   }
 
@@ -410,12 +422,14 @@ export default function ShiftListModal({
                 label="TM"
                 onSelect={onSelect}
                 onClaim={onClaim}
-                onReject={onReject}
                 validateClaim={validateClaim}
                 onValidationError={(error) => {
                   setValidationError(error)
                   setTimeout(() => setValidationError(null), 4000)
                 }}
+                rejectedShiftIds={rejectedShiftIds}
+                onRejectShift={handleRejectShift}
+                onUnrejectShift={handleUnrejectShift}
               />
             )}
             
@@ -425,12 +439,14 @@ export default function ShiftListModal({
                 label="TT"
                 onSelect={onSelect}
                 onClaim={onClaim}
-                onReject={onReject}
                 validateClaim={validateClaim}
                 onValidationError={(error) => {
                   setValidationError(error)
                   setTimeout(() => setValidationError(null), 4000)
                 }}
+                rejectedShiftIds={rejectedShiftIds}
+                onRejectShift={handleRejectShift}
+                onUnrejectShift={handleUnrejectShift}
               />
             )}
             
@@ -440,12 +456,14 @@ export default function ShiftListModal({
                 label="TN"
                 onSelect={onSelect}
                 onClaim={onClaim}
-                onReject={onReject}
                 validateClaim={validateClaim}
                 onValidationError={(error) => {
                   setValidationError(error)
                   setTimeout(() => setValidationError(null), 4000)
                 }}
+                rejectedShiftIds={rejectedShiftIds}
+                onRejectShift={handleRejectShift}
+                onUnrejectShift={handleUnrejectShift}
               />
             )}
           </div>
