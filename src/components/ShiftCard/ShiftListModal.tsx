@@ -9,7 +9,7 @@ interface ShiftListModalProps {
   onSelect: (shiftId: string) => void
   onClose: () => void
   onClaim?: (shiftId: string) => void
-  onReject?: (shiftId: string) => void
+  onReject?: () => void
 }
 
 // Component for a single shift block that can have swipe if multiple shifts
@@ -18,33 +18,106 @@ function ShiftBlock({
   label,
   onSelect,
   onClaim,
-  onReject
+  onReject,
+  validateClaim,
+  onValidationError
 }: {
   shifts: Shift[]
   label: string
   onSelect: (shiftId: string) => void
   onClaim?: (shiftId: string) => void
-  onReject?: (shiftId: string) => void
+  onReject?: () => void
+  validateClaim: (shift: Shift) => { valid: boolean; error?: string }
+  onValidationError: (error: string) => void
 }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [touchStart, setTouchStart] = useState(0)
   const [touchEnd, setTouchEnd] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
   const [translateX, setTranslateX] = useState(0)
+  
+  // Local state for rejected shifts (not persisted to server)
+  const [rejectedShiftIds, setRejectedShiftIds] = useState<Set<string>>(new Set())
 
   const hasMultipleShifts = shifts.length > 1
 
   const handleClaim = (e: React.MouseEvent, shiftId: string) => {
     e.stopPropagation()
+    
+    const shift = shifts.find(s => s.id === shiftId)
+    if (!shift) return
+
+    // Toggle off if already claimed
+    if (shift.status === 'claimed') {
+      // Local unclaim - just update parent without API call
+      if (onClaim) {
+        onClaim(shiftId) // Parent will handle local state update
+      }
+      return
+    }
+
+    // Validate if this shift can be claimed
+    const validation = validateClaim(shift)
+    if (!validation.valid) {
+      onValidationError(validation.error || 'No se puede seleccionar este turno')
+      return
+    }
+
+    // Check if another shift in this slot is already claimed
+    const alreadyClaimedShift = shifts.find(s => s.status === 'claimed' && s.id !== shiftId)
+    
+    if (alreadyClaimedShift && onClaim) {
+      // Unclaim the previous one first (local only)
+      onClaim(alreadyClaimedShift.id)
+    }
+    
+    // Claim the new one
     if (onClaim) {
       onClaim(shiftId)
+    }
+    
+    // Remove from rejected list if it was rejected
+    if (rejectedShiftIds.has(shiftId)) {
+      setRejectedShiftIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(shiftId)
+        return newSet
+      })
     }
   }
 
   const handleReject = (e: React.MouseEvent, shiftId: string) => {
     e.stopPropagation()
-    if (onReject) {
-      onReject(shiftId)
+    
+    // Toggle off if already rejected
+    if (rejectedShiftIds.has(shiftId)) {
+      setRejectedShiftIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(shiftId)
+        return newSet
+      })
+      return
+    }
+    
+    // Mark as rejected locally (no API call)
+    setRejectedShiftIds(prev => new Set(prev).add(shiftId))
+    
+    // Auto-swipe to next shift
+    if (hasMultipleShifts && currentIndex < shifts.length - 1) {
+      setTimeout(() => {
+        setCurrentIndex(currentIndex + 1)
+      }, 200) // Small delay for visual feedback
+    }
+    
+    // If this was the last shift, check if all are rejected and close modal
+    if (currentIndex === shifts.length - 1) {
+      const allRejected = shifts.every(s => rejectedShiftIds.has(s.id) || s.id === shiftId)
+      if (allRejected && onReject) {
+        // Signal to parent that we should close this slot/modal
+        setTimeout(() => {
+          if (onReject) onReject()
+        }, 300)
+      }
     }
   }
 
@@ -99,26 +172,40 @@ function ShiftBlock({
 
       {/* Swipeable container */}
       <div 
-        className="overflow-hidden"
+        className="overflow-visible relative"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div 
-          className="flex transition-transform duration-300 ease-out"
+          className="flex gap-3 transition-transform duration-300 ease-out"
           style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${isDragging ? translateX : 0}px))`
+            transform: hasMultipleShifts 
+              ? `translateX(calc(7.5% - ${currentIndex} * (85% + 12px) + ${isDragging ? translateX : 0}px))` 
+              : 'translateX(7.5%)'
           }}
         >
-          {shifts.map((shift) => (
-            <div
-              key={shift.id}
-              className="w-full flex-shrink-0 px-1"
-            >
+          {shifts.map((shift) => {
+            const isRejected = rejectedShiftIds.has(shift.id)
+            const isClaimed = shift.status === 'claimed'
+            
+            return (
               <div
-                onClick={() => onSelect(shift.id)}
-                className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors cursor-pointer"
+                key={shift.id}
+                className="flex-shrink-0 w-[85%]"
               >
+                <div
+                  onClick={() => onSelect(shift.id)}
+                  className={`
+                    w-full p-4 rounded-xl text-left transition-colors cursor-pointer
+                    ${isClaimed 
+                      ? 'bg-green-50 hover:bg-green-100' 
+                      : isRejected
+                      ? 'bg-gray-100 hover:bg-gray-150 opacity-60'
+                      : 'bg-gray-50 hover:bg-gray-100'
+                    }
+                  `}
+                >
                 <div>
                   {/* Line 1: Time and Action buttons */}
                   <div className="flex items-center justify-between mb-2">
@@ -129,35 +216,34 @@ function ShiftBlock({
                     <div className="flex gap-2">
                       <button
                         onClick={(e) => handleClaim(e, shift.id)}
-                        disabled={shift.status === 'claimed'}
                         className={`
                           w-8 h-8 rounded-full flex items-center justify-center transition-all
-                          ${shift.status === 'claimed' 
-                            ? 'bg-green-500 border-2 border-green-500 cursor-not-allowed' 
+                          ${isClaimed 
+                            ? 'bg-green-500 border-2 border-green-500' 
                             : 'border-2 border-green-500 hover:bg-green-50'
                           }
                         `}
                       >
                         <IconCheck 
                           size={18} 
-                          className={shift.status === 'claimed' ? 'text-white' : 'text-green-500'}
-                          strokeWidth={shift.status === 'claimed' ? 3 : 2}
+                          className={isClaimed ? 'text-white' : 'text-green-500'}
+                          strokeWidth={isClaimed ? 3 : 2}
                         />
                       </button>
                       <button
                         onClick={(e) => handleReject(e, shift.id)}
-                        disabled={shift.status === 'claimed'}
                         className={`
-                          w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors
-                          ${shift.status === 'claimed'
-                            ? 'border-gray-300 cursor-not-allowed opacity-50'
-                            : 'border-red-500 hover:bg-red-50'
+                          w-8 h-8 rounded-full flex items-center justify-center transition-all
+                          ${isRejected
+                            ? 'bg-red-500 border-2 border-red-500'
+                            : 'border-2 border-red-500 hover:bg-red-50'
                           }
                         `}
                       >
                         <IconX 
                           size={18} 
-                          className={shift.status === 'claimed' ? 'text-gray-400' : 'text-red-500'}
+                          className={isRejected ? 'text-white' : 'text-red-500'}
+                          strokeWidth={isRejected ? 3 : 2}
                         />
                       </button>
                     </div>
@@ -185,7 +271,8 @@ function ShiftBlock({
                 </div>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -220,6 +307,8 @@ export default function ShiftListModal({
   onClaim,
   onReject
 }: ShiftListModalProps) {
+  const [validationError, setValidationError] = useState<string | null>(null)
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('es-ES', { 
@@ -234,6 +323,49 @@ export default function ShiftListModal({
     TM: shifts.filter(s => s.label === 'TM'),
     TT: shifts.filter(s => s.label === 'TT'),
     TN: shifts.filter(s => s.label === 'TN')
+  }
+
+  // Get currently claimed shifts
+  const getClaimedShifts = () => {
+    return shifts.filter(s => s.status === 'claimed')
+  }
+
+  // Validate if a shift can be claimed
+  const validateClaim = (shiftToClaim: Shift): { valid: boolean; error?: string } => {
+    const claimedShifts = getClaimedShifts().filter(s => s.id !== shiftToClaim.id)
+    
+    // If no other shifts claimed, allow
+    if (claimedShifts.length === 0) {
+      return { valid: true }
+    }
+
+    const claimedTM = claimedShifts.find(s => s.label === 'TM')
+    const claimedTT = claimedShifts.find(s => s.label === 'TT')
+    const claimedTN = claimedShifts.find(s => s.label === 'TN')
+
+    // Rule 1: Cannot have TN with TM or TT
+    if (shiftToClaim.label === 'TN' && (claimedTM || claimedTT)) {
+      return { valid: false, error: 'No puedes seleccionar turno de noche (TN) si ya tienes turno de mañana (TM) o tarde (TT)' }
+    }
+    
+    if ((shiftToClaim.label === 'TM' || shiftToClaim.label === 'TT') && claimedTN) {
+      return { valid: false, error: 'No puedes seleccionar turno de mañana (TM) o tarde (TT) si ya tienes turno de noche (TN)' }
+    }
+
+    // Rule 2: TM + TT must be same hospital
+    if (shiftToClaim.label === 'TM' && claimedTT) {
+      if (shiftToClaim.facilityName !== claimedTT.facilityName) {
+        return { valid: false, error: 'Solo puedes seleccionar TM + TT si son del mismo hospital' }
+      }
+    }
+    
+    if (shiftToClaim.label === 'TT' && claimedTM) {
+      if (shiftToClaim.facilityName !== claimedTM.facilityName) {
+        return { valid: false, error: 'Solo puedes seleccionar TM + TT si son del mismo hospital' }
+      }
+    }
+
+    return { valid: true }
   }
 
   return (
@@ -263,6 +395,13 @@ export default function ShiftListModal({
             </button>
           </div>
           
+          {/* Validation error message */}
+          {validationError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl">
+              <p className="text-sm text-red-700">{validationError}</p>
+            </div>
+          )}
+
           {/* Shift blocks - stacked vertically */}
           <div className="pb-4">
             {groupedShifts.TM.length > 0 && (
@@ -272,6 +411,11 @@ export default function ShiftListModal({
                 onSelect={onSelect}
                 onClaim={onClaim}
                 onReject={onReject}
+                validateClaim={validateClaim}
+                onValidationError={(error) => {
+                  setValidationError(error)
+                  setTimeout(() => setValidationError(null), 4000)
+                }}
               />
             )}
             
@@ -282,6 +426,11 @@ export default function ShiftListModal({
                 onSelect={onSelect}
                 onClaim={onClaim}
                 onReject={onReject}
+                validateClaim={validateClaim}
+                onValidationError={(error) => {
+                  setValidationError(error)
+                  setTimeout(() => setValidationError(null), 4000)
+                }}
               />
             )}
             
@@ -292,6 +441,11 @@ export default function ShiftListModal({
                 onSelect={onSelect}
                 onClaim={onClaim}
                 onReject={onReject}
+                validateClaim={validateClaim}
+                onValidationError={(error) => {
+                  setValidationError(error)
+                  setTimeout(() => setValidationError(null), 4000)
+                }}
               />
             )}
           </div>

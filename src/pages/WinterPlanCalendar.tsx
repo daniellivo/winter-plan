@@ -3,7 +3,7 @@ import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, sendFeedback, sendCompletedPlan } from '../api/winterPlan'
+import { getWinterPlan, claimShift, sendCompletedPlan } from '../api/winterPlan'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { WinterPlan, Shift } from '../types/winterPlan'
@@ -78,16 +78,54 @@ export default function WinterPlanCalendar() {
   }
 
   const handleClaimFromModal = async (shiftId: string) => {
+    if (!selectedShifts) return
+    
+    const shift = selectedShifts.find(s => s.id === shiftId)
+    if (!shift) return
+    
+    // Toggle behavior: if already claimed, unclaim it (local only, no API call)
+    if (shift.status === 'claimed') {
+      // Local unclaim - just update state
+      const updatedShifts = selectedShifts.map(s => 
+        s.id === shiftId ? { ...s, status: 'pending' as const } : s
+      )
+      setSelectedShifts(updatedShifts)
+      
+      // Update the plan state
+      if (plan) {
+        const updatedPlan = {
+          ...plan,
+          months: plan.months.map(month => ({
+            ...month,
+            days: month.days.map(day => ({
+              ...day,
+              shifts: day.shifts.map(s => 
+                s.id === shiftId ? { ...s, status: 'pending' as const } : s
+              )
+            }))
+          }))
+        }
+        setPlan(updatedPlan)
+      }
+      return
+    }
+    
+    // Claiming a shift - make API call
     try {
       await claimShift(shiftId, professionalId)
       
       // Update local state immediately for better UX
-      if (selectedShifts) {
-        const updatedShifts = selectedShifts.map(s => 
-          s.id === shiftId ? { ...s, status: 'claimed' as const } : s
-        )
-        setSelectedShifts(updatedShifts)
-      }
+      // Also unclaim any other shift in the same slot
+      const updatedShifts = selectedShifts.map(s => {
+        if (s.id === shiftId) {
+          return { ...s, status: 'claimed' as const }
+        } else if (s.status === 'claimed' && s.label === shift.label) {
+          // Unclaim other shift in the same slot
+          return { ...s, status: 'pending' as const }
+        }
+        return s
+      })
+      setSelectedShifts(updatedShifts)
       
       // Reload plan to get fresh data
       await loadPlan()
@@ -96,25 +134,10 @@ export default function WinterPlanCalendar() {
     }
   }
 
-  const handleRejectFromModal = async (shiftId: string) => {
-    try {
-      await sendFeedback(shiftId, professionalId, 'not_interested')
-      
-      // Remove the rejected shift from modal immediately
-      if (selectedShifts) {
-        const remaining = selectedShifts.filter(s => s.id !== shiftId)
-        if (remaining.length === 0) {
-          closeModal()
-        } else {
-          setSelectedShifts(remaining)
-        }
-      }
-      
-      // Reload plan to get fresh data
-      await loadPlan()
-    } catch {
-      alert('Error al rechazar el turno')
-    }
+  const handleRejectFromModal = async () => {
+    // Rejection is now local-only in the modal component
+    // This is only called when all shifts in a slot are rejected to close the modal
+    closeModal()
   }
 
   const closeModal = () => {
@@ -322,7 +345,7 @@ export default function WinterPlanCalendar() {
               {confirmedCount > 0 && (
                 <div className="text-center mb-3">
                   <p className="text-sm text-gray-600">
-                    Has confirmado <span className="font-semibold text-[#2cbeff]">{confirmedCount}</span> {confirmedCount === 1 ? 'turno' : 'turnos'}
+                    Has seleccionado <span className="font-semibold text-[#2cbeff]">{confirmedCount}</span> {confirmedCount === 1 ? 'turno' : 'turnos'}
                   </p>
                 </div>
               )}
@@ -349,13 +372,13 @@ export default function WinterPlanCalendar() {
                 ) : (
                   <>
                     <IconCheck size={22} strokeWidth={2.5} />
-                    <span>Confirma tus turnos</span>
+                    <span>Solicita tus turnos</span>
                   </>
                 )}
               </button>
               {confirmedCount === 0 && (
                 <p className="text-xs text-gray-500 text-center mt-2">
-                  Confirma al menos un turno para completar tu plan
+                  Selecciona al menos un turno para completar tu plan
                 </p>
               )}
             </>
