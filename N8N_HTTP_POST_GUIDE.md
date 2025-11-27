@@ -366,3 +366,5 @@ Una vez que funcione con el proxy local, puedes:
 - Abre la consola del navegador
 - Verifica que los datos estén en sessionStorage: `sessionStorage.getItem('winter_plan_shifts_data')`
 
+
+
