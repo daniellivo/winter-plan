@@ -172,7 +172,7 @@ function ShiftBlock({
 
       {/* Swipeable container */}
       <div 
-        className="overflow-visible relative"
+        className="overflow-hidden relative"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -377,8 +377,8 @@ export default function ShiftListModal({
       />
       
       {/* Modal */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-2xl z-50 animate-slide-up max-h-[85vh] overflow-y-auto">
-        <div className="p-4">
+      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-2xl z-50 animate-slide-up max-h-[85vh] overflow-y-auto overflow-x-hidden">
+        <div className="p-4 overflow-x-hidden">
           {/* Handle */}
           <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
           
@@ -403,7 +403,7 @@ export default function ShiftListModal({
           )}
 
           {/* Shift blocks - stacked vertically */}
-          <div className="pb-4">
+          <div className="pb-4 overflow-x-hidden">
             {groupedShifts.TM.length > 0 && (
               <ShiftBlock
                 shifts={groupedShifts.TM}
