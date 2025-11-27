@@ -119,74 +119,70 @@ function ShiftBlock({
                 onClick={() => onSelect(shift.id)}
                 className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors cursor-pointer"
               >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    {/* Time */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm text-gray-600">
-                        {shift.startTime} - {shift.endTime}
-                      </span>
+                <div>
+                  {/* Line 1: Time and Action buttons */}
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-600">
+                      {shift.startTime} - {shift.endTime}
+                    </span>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => handleClaim(e, shift.id)}
+                        disabled={shift.status === 'claimed'}
+                        className={`
+                          w-8 h-8 rounded-full flex items-center justify-center transition-all
+                          ${shift.status === 'claimed' 
+                            ? 'bg-green-500 border-2 border-green-500 cursor-not-allowed' 
+                            : 'border-2 border-green-500 hover:bg-green-50'
+                          }
+                        `}
+                      >
+                        <IconCheck 
+                          size={18} 
+                          className={shift.status === 'claimed' ? 'text-white' : 'text-green-500'}
+                          strokeWidth={shift.status === 'claimed' ? 3 : 2}
+                        />
+                      </button>
+                      <button
+                        onClick={(e) => handleReject(e, shift.id)}
+                        disabled={shift.status === 'claimed'}
+                        className={`
+                          w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors
+                          ${shift.status === 'claimed'
+                            ? 'border-gray-300 cursor-not-allowed opacity-50'
+                            : 'border-red-500 hover:bg-red-50'
+                          }
+                        `}
+                      >
+                        <IconX 
+                          size={18} 
+                          className={shift.status === 'claimed' ? 'text-gray-400' : 'text-red-500'}
+                        />
+                      </button>
                     </div>
-                    
-                    {/* Facility name */}
-                    <p className="text-sm font-medium text-gray-900">
-                      {shift.facilityName}
-                    </p>
-                    
-                    {/* Unit and field */}
+                  </div>
+                  
+                  {/* Line 2: Facility name */}
+                  <p className="text-sm font-medium text-gray-900 mb-1">
+                    {shift.facilityName}
+                  </p>
+                  
+                  {/* Line 3: Unit/field and price */}
+                  <div className="flex items-center justify-between">
                     {(shift.unit || shift.field) && (
-                      <p className="text-xs text-gray-500 mt-0.5">
+                      <p className="text-xs text-gray-500">
                         {[shift.unit, shift.field].filter(Boolean).join(' · ')}
                       </p>
                     )}
-                  </div>
-                  
-                  {/* Action buttons */}
-                  <div className="flex gap-2 ml-3">
-                    <button
-                      onClick={(e) => handleClaim(e, shift.id)}
-                      disabled={shift.status === 'claimed'}
-                      className={`
-                        w-8 h-8 rounded-full flex items-center justify-center transition-all
-                        ${shift.status === 'claimed' 
-                          ? 'bg-green-500 border-2 border-green-500 cursor-not-allowed' 
-                          : 'border-2 border-green-500 hover:bg-green-50'
-                        }
-                      `}
-                    >
-                      <IconCheck 
-                        size={18} 
-                        className={shift.status === 'claimed' ? 'text-white' : 'text-green-500'}
-                        strokeWidth={shift.status === 'claimed' ? 3 : 2}
-                      />
-                    </button>
-                    <button
-                      onClick={(e) => handleReject(e, shift.id)}
-                      disabled={shift.status === 'claimed'}
-                      className={`
-                        w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors
-                        ${shift.status === 'claimed'
-                          ? 'border-gray-300 cursor-not-allowed opacity-50'
-                          : 'border-red-500 hover:bg-red-50'
-                        }
-                      `}
-                    >
-                      <IconX 
-                        size={18} 
-                        className={shift.status === 'claimed' ? 'text-gray-400' : 'text-red-500'}
-                      />
-                    </button>
+                    
+                    {shift.price && (
+                      <span className="text-sm font-semibold text-green-600">
+                        {shift.price}€
+                      </span>
+                    )}
                   </div>
                 </div>
-                
-                {/* Price display */}
-                {shift.price && (
-                  <div className="text-center">
-                    <span className="text-sm font-semibold text-green-600">
-                      {shift.price}€
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
           ))}
