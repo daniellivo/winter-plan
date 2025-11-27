@@ -155,7 +155,12 @@ const mockShiftDetails: ShiftDetails = {
     reviewsCount: 10,
     address: 'C. de Cartagena 340, 08025',
     city: 'Barcelona',
-    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=C.+de+Cartagena+340,+08025+Barcelona'
+    googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=C.+de+Cartagena+340,+08025+Barcelona',
+    allowInternalProsToCancelApprovedClaims: true,
+    generalInfoDocumentUrl: 'https://storage.googleapis.com/livo-backend-prod/shift-guidance-documents/informacion_general_Hospital_General_Catalunya.pdf',
+    images: {
+      logo: 'https://storage.googleapis.com/livo-backend-prod/facility-images/hospital-logo.jpg'
+    }
   },
   unit: 'Quirófano - Instrumentista',
   field: 'Cardiología',

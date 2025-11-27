@@ -37,7 +37,11 @@ export interface Facility {
   googleMapsUrl?: string
   images?: {
     logo?: string
+    banner?: string
   }
+  allowInternalProsToCancelApprovedClaims?: boolean
+  generalInfoDocumentUrl?: string
+  shiftGuidanceDocumentUrl?: string
 }
 
 export interface Remuneration {

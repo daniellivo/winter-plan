@@ -12,7 +12,9 @@ import {
   IconStethoscope, 
   IconClock,
   IconCalendar,
-  IconHeart
+  IconHeart,
+  IconCheck,
+  IconInfoCircle
 } from '@tabler/icons-react'
 import Header from '../components/Layout/Header'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
@@ -157,11 +159,18 @@ export default function ShiftDetails() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">
             {shift.facility.name}
           </h2>
-          <div className="flex items-center gap-1 text-sm text-gray-600">
+          <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
             <IconStar size={14} className="text-amber-400 fill-amber-400" />
             <span>{shift.facility.rating}</span>
             <span className="text-gray-400">({shift.facility.reviewsCount} valoraciones)</span>
           </div>
+          
+          {shift.facility.allowInternalProsToCancelApprovedClaims && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs text-gray-700">
+              <IconCheck size={12} className="text-gray-600" />
+              <span>Aprobación alta</span>
+            </div>
+          )}
         </div>
 
         {/* Shift details */}
@@ -232,6 +241,20 @@ export default function ShiftDetails() {
         {/* Address - Opens Google Maps */}
         <div className="border-t border-gray-100 pt-4 mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Sobre el centro</h3>
+          
+          {shift.facility.generalInfoDocumentUrl && (
+            <button 
+              onClick={() => window.open(shift.facility.generalInfoDocumentUrl, '_blank')}
+              className="w-full flex items-center justify-between py-2 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors mb-2"
+            >
+              <div className="flex items-center gap-3">
+                <IconInfoCircle size={18} className="text-gray-400" />
+                <span className="text-sm text-gray-900">Instrucciones generales del centro</span>
+              </div>
+              <IconChevronRight size={20} className="text-[#2cbeff]" />
+            </button>
+          )}
+          
           <button 
             onClick={openGoogleMaps}
             className="w-full flex items-center justify-between py-2 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
