@@ -79,15 +79,52 @@ export default function WinterPlanCalendar() {
 
   const handleClaimFromModal = async (shiftId: string) => {
     try {
+      if (!selectedShifts) return
+      
+      // Find the clicked shift
+      const clickedShift = selectedShifts.find(s => s.id === shiftId)
+      if (!clickedShift) return
+      
+      // If already claimed, toggle to unclaim (pending)
+      if (clickedShift.status === 'claimed') {
+        await claimShift(shiftId, professionalId)
+        
+        // Update local state
+        const updatedShifts = selectedShifts.map(s => 
+          s.id === shiftId ? { ...s, status: 'pending' as const } : s
+        )
+        setSelectedShifts(updatedShifts)
+        
+        // Reload plan
+        await loadPlan()
+        return
+      }
+      
+      // Check if another shift with the same label is already claimed
+      const alreadyClaimedShift = selectedShifts.find(
+        s => s.id !== shiftId && s.label === clickedShift.label && s.status === 'claimed'
+      )
+      
+      // If another shift in the same slot is claimed, unclaim it first
+      if (alreadyClaimedShift) {
+        await claimShift(alreadyClaimedShift.id, professionalId)
+      }
+      
+      // Claim the current shift
       await claimShift(shiftId, professionalId)
       
       // Update local state immediately for better UX
-      if (selectedShifts) {
-        const updatedShifts = selectedShifts.map(s => 
-          s.id === shiftId ? { ...s, status: 'claimed' as const } : s
-        )
-        setSelectedShifts(updatedShifts)
-      }
+      const updatedShifts = selectedShifts.map(s => {
+        if (s.id === shiftId) {
+          return { ...s, status: 'claimed' as const }
+        }
+        // Unclaim the other shift in the same slot if it exists
+        if (s.id === alreadyClaimedShift?.id) {
+          return { ...s, status: 'pending' as const }
+        }
+        return s
+      })
+      setSelectedShifts(updatedShifts)
       
       // Reload plan to get fresh data
       await loadPlan()
@@ -98,17 +135,23 @@ export default function WinterPlanCalendar() {
 
   const handleRejectFromModal = async (shiftId: string) => {
     try {
+      if (!selectedShifts) return
+      
+      // Find the clicked shift
+      const clickedShift = selectedShifts.find(s => s.id === shiftId)
+      if (!clickedShift) return
+      
       await sendFeedback(shiftId, professionalId, 'not_interested')
       
-      // Remove the rejected shift from modal immediately
-      if (selectedShifts) {
-        const remaining = selectedShifts.filter(s => s.id !== shiftId)
-        if (remaining.length === 0) {
-          closeModal()
-        } else {
-          setSelectedShifts(remaining)
+      // Update local state - toggle rejected status
+      const updatedShifts = selectedShifts.map(s => {
+        if (s.id === shiftId) {
+          const newStatus = s.status === 'rejected' ? 'pending' : 'rejected'
+          return { ...s, status: newStatus as 'pending' | 'rejected' }
         }
-      }
+        return s
+      })
+      setSelectedShifts(updatedShifts)
       
       // Reload plan to get fresh data
       await loadPlan()
@@ -322,7 +365,7 @@ export default function WinterPlanCalendar() {
               {confirmedCount > 0 && (
                 <div className="text-center mb-3">
                   <p className="text-sm text-gray-600">
-                    Has confirmado <span className="font-semibold text-[#2cbeff]">{confirmedCount}</span> {confirmedCount === 1 ? 'turno' : 'turnos'}
+                    Has seleccionado <span className="font-semibold text-[#2cbeff]">{confirmedCount}</span> {confirmedCount === 1 ? 'turno' : 'turnos'}
                   </p>
                 </div>
               )}

@@ -45,6 +45,14 @@ function ShiftBlock({
     e.stopPropagation()
     if (onReject) {
       onReject(shiftId)
+      
+      // Auto-swipe to next shift if there are more shifts and shift was not already rejected
+      const clickedShift = shifts.find(s => s.id === shiftId)
+      if (hasMultipleShifts && currentIndex < shifts.length - 1 && clickedShift?.status !== 'rejected') {
+        setTimeout(() => {
+          setCurrentIndex(currentIndex + 1)
+        }, 150)
+      }
     }
   }
 
@@ -99,7 +107,7 @@ function ShiftBlock({
 
       {/* Swipeable container */}
       <div 
-        className="overflow-hidden"
+        className={hasMultipleShifts ? "overflow-visible" : "overflow-hidden"}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
@@ -107,17 +115,23 @@ function ShiftBlock({
         <div 
           className="flex transition-transform duration-300 ease-out"
           style={{
-            transform: `translateX(calc(-${currentIndex * 100}% + ${isDragging ? translateX : 0}px))`
+            transform: hasMultipleShifts 
+              ? `translateX(calc(-${currentIndex * 80}% + ${isDragging ? translateX : 0}px))`
+              : `translateX(0px)`
           }}
         >
           {shifts.map((shift) => (
             <div
               key={shift.id}
-              className="w-full flex-shrink-0 px-1"
+              className={`flex-shrink-0 ${hasMultipleShifts ? 'w-[80%]' : 'w-full'} px-1`}
             >
               <div
                 onClick={() => onSelect(shift.id)}
-                className="w-full p-4 bg-gray-50 rounded-xl text-left hover:bg-gray-100 transition-colors cursor-pointer"
+                className={`w-full p-4 rounded-xl text-left transition-colors cursor-pointer ${
+                  shift.status === 'claimed' 
+                    ? 'bg-green-50 hover:bg-green-100' 
+                    : 'bg-gray-50 hover:bg-gray-100'
+                }`}
               >
                 <div>
                   {/* Line 1: Time and Action buttons */}
@@ -129,11 +143,10 @@ function ShiftBlock({
                     <div className="flex gap-2">
                       <button
                         onClick={(e) => handleClaim(e, shift.id)}
-                        disabled={shift.status === 'claimed'}
                         className={`
-                          w-8 h-8 rounded-full flex items-center justify-center transition-all
+                          w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer
                           ${shift.status === 'claimed' 
-                            ? 'bg-green-500 border-2 border-green-500 cursor-not-allowed' 
+                            ? 'bg-green-500 border-2 border-green-500' 
                             : 'border-2 border-green-500 hover:bg-green-50'
                           }
                         `}
@@ -146,18 +159,18 @@ function ShiftBlock({
                       </button>
                       <button
                         onClick={(e) => handleReject(e, shift.id)}
-                        disabled={shift.status === 'claimed'}
                         className={`
-                          w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors
-                          ${shift.status === 'claimed'
-                            ? 'border-gray-300 cursor-not-allowed opacity-50'
-                            : 'border-red-500 hover:bg-red-50'
+                          w-8 h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer
+                          ${shift.status === 'rejected'
+                            ? 'bg-red-500 border-2 border-red-500'
+                            : 'border-2 border-red-500 hover:bg-red-50'
                           }
                         `}
                       >
                         <IconX 
                           size={18} 
-                          className={shift.status === 'claimed' ? 'text-gray-400' : 'text-red-500'}
+                          className={shift.status === 'rejected' ? 'text-white' : 'text-red-500'}
+                          strokeWidth={shift.status === 'rejected' ? 3 : 2}
                         />
                       </button>
                     </div>
