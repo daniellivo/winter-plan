@@ -1,25 +1,37 @@
-import { useState } from 'react'
-import { receiveShiftsData, clearStoredShiftsData, getStoredShiftsData } from '../api/winterPlan'
+import { useState, useEffect } from 'react'
+import { clearStoredShiftsData, getStoredShiftsData } from '../api/winterPlan'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
 import SecondaryButton from '../components/Buttons/SecondaryButton'
+import { useAppNavigation } from '../hooks/useAppNavigation'
+
+// Storage key (same as in winterPlan.ts)
+const SHIFTS_STORAGE_KEY = 'winter_plan_shifts_data'
 
 /**
  * Utility page to receive and store shifts data
- * This page allows testing the POST functionality by pasting JSON data
+ * This page allows testing by pasting JSON data in shiftsByDate format
  */
 export default function ShiftsDataReceiver() {
+  const navigate = useAppNavigation()
   const [jsonInput, setJsonInput] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [storedCount, setStoredCount] = useState(0)
 
   // Check stored data on mount
-  useState(() => {
+  useEffect(() => {
     const stored = getStoredShiftsData()
     if (stored) {
-      setStoredCount(stored.length)
+      if (stored.isN8n) {
+        const n8nData = stored.data as { shiftsByDate: Array<{ shifts: unknown[] }> }
+        const count = n8nData.shiftsByDate.reduce((acc, day) => acc + day.shifts.length, 0)
+        setStoredCount(count)
+      } else {
+        const legacyData = stored.data as unknown[]
+        setStoredCount(legacyData.length)
+      }
     }
-  })
+  }, [])
 
   const handleSubmit = async () => {
     try {
@@ -29,17 +41,34 @@ export default function ShiftsDataReceiver() {
       // Parse JSON
       const data = JSON.parse(jsonInput)
 
-      // Validate it's an array
-      if (!Array.isArray(data)) {
-        throw new Error('El JSON debe ser un array de turnos')
+      let shiftsCount = 0
+
+      // Check format: shiftsByDate (n8n) or legacy array
+      if (data.shiftsByDate && Array.isArray(data.shiftsByDate)) {
+        // n8n format: { shiftsByDate: [...] }
+        shiftsCount = data.shiftsByDate.reduce(
+          (acc: number, day: { shifts?: unknown[] }) => acc + (day.shifts?.length || 0), 
+          0
+        )
+        
+        // Store directly in sessionStorage
+        sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(data))
+        
+        setStatus('success')
+        setMessage(`✅ ${shiftsCount} turnos en ${data.shiftsByDate.length} fechas almacenados correctamente`)
+        setStoredCount(shiftsCount)
+      } else if (Array.isArray(data)) {
+        // Legacy format: [{ shiftDetails: {...} }, ...]
+        shiftsCount = data.length
+        sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(data))
+        
+        setStatus('success')
+        setMessage(`✅ ${shiftsCount} turnos almacenados correctamente (formato legacy)`)
+        setStoredCount(shiftsCount)
+      } else {
+        throw new Error('Formato inválido. Debe ser { shiftsByDate: [...] } o un array')
       }
 
-      // Send data
-      const result = await receiveShiftsData(data)
-      
-      setStatus('success')
-      setMessage(`✅ ${result.count} turnos recibidos y almacenados correctamente`)
-      setStoredCount(result.count)
       setJsonInput('') // Clear input on success
     } catch (error) {
       setStatus('error')
@@ -55,105 +84,122 @@ export default function ShiftsDataReceiver() {
   }
 
   const handleLoadExample = () => {
-    const exampleData = [
-      {
-        "shiftDetails": {
-          "id": "shift_101",
-          "professionalId": "pro_123",
+    // Example in n8n shiftsByDate format
+    const exampleData = {
+      "shiftsByDate": [
+        {
           "date": "2025-12-05",
-          "startTime": "08:00",
-          "endTime": "15:00",
-          "unit": "Urgencias",
-          "field": "Medicina Interna",
-          "description": "Turno dinámico en un entorno de alta actividad.",
-          "facility": {
-            "id": "fac_145",
-            "name": "Hospital Clínic de Barcelona",
-            "rating": 4.3,
-            "reviewsCount": 28,
-            "address": "C. Villarroel 170, 08036",
-            "city": "Barcelona",
-            "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=hospital+clinic"
-          },
-          "remuneration": {
-            "facilityAmount": 230,
-            "bonusAmount": 40,
-            "total": 270
-          },
-          "tags": {
-            "parking": false,
-            "food": true,
-            "cafeteria": true,
-            "programa": "casiopea"
-          }
+          "shifts": [
+            {
+              "id": 95776,
+              "facility": {
+                "id": 9,
+                "name": "Clínica Mi Tres Torres",
+                "logo": "https://storage.googleapis.com/livo-backend-prod/facility-images/9-Logo.jpg",
+                "address": "Carrer del Dr. Roux, 76, 08017",
+                "addressCity": "Barcelona",
+                "mapLink": "https://goo.gl/maps/example",
+                "facilityReview": {
+                  "averageRating": 4.9,
+                  "totalReviews": 278
+                }
+              },
+              "localStartTime": "21:45",
+              "localFinishTime": "08:00",
+              "shiftTimeInDay": "NIGHT_SHIFT",
+              "specialization": {
+                "displayText": "Hospitalización"
+              },
+              "unit": "Hospitalización medico-quirúrgica",
+              "shiftTotalPay": 270,
+              "tags": ["livoBonus"]
+            }
+          ]
+        },
+        {
+          "date": "2025-12-10",
+          "shifts": [
+            {
+              "id": 95777,
+              "facility": {
+                "id": 15,
+                "name": "Hospital Quirónsalud Barcelona",
+                "address": "Plaça d'Alfonso Comín, 5, 08023",
+                "addressCity": "Barcelona",
+                "mapLink": "https://maps.app.goo.gl/example",
+                "facilityReview": {
+                  "averageRating": 4.7,
+                  "totalReviews": 609
+                }
+              },
+              "localStartTime": "08:00",
+              "localFinishTime": "15:00",
+              "shiftTimeInDay": "MORNING_SHIFT",
+              "specialization": {
+                "displayText": "UCI"
+              },
+              "unit": "Unidad de Cuidados Intensivos",
+              "shiftTotalPay": 320,
+              "tags": []
+            },
+            {
+              "id": 95778,
+              "facility": {
+                "id": 9,
+                "name": "Clínica Mi Tres Torres",
+                "address": "Carrer del Dr. Roux, 76, 08017",
+                "addressCity": "Barcelona",
+                "facilityReview": {
+                  "averageRating": 4.9,
+                  "totalReviews": 278
+                }
+              },
+              "localStartTime": "15:00",
+              "localFinishTime": "22:00",
+              "shiftTimeInDay": "AFTERNOON_SHIFT",
+              "specialization": {
+                "displayText": "Urgencias"
+              },
+              "unit": "Urgencias",
+              "shiftTotalPay": 285,
+              "tags": ["livoBonus"]
+            }
+          ]
+        },
+        {
+          "date": "2025-12-15",
+          "shifts": [
+            {
+              "id": 95779,
+              "facility": {
+                "id": 20,
+                "name": "Hospital del Mar",
+                "address": "Passeig Marítim, 25-29",
+                "addressCity": "Barcelona",
+                "facilityReview": {
+                  "averageRating": 4.5,
+                  "totalReviews": 420
+                }
+              },
+              "localStartTime": "07:00",
+              "localFinishTime": "14:00",
+              "shiftTimeInDay": "MORNING_SHIFT",
+              "specialization": {
+                "displayText": "Quirófano"
+              },
+              "unit": "Quirófano General",
+              "shiftTotalPay": 350,
+              "tags": []
+            }
+          ]
         }
-      },
-      {
-        "shiftDetails": {
-          "id": "shift_102",
-          "professionalId": "pro_123",
-          "date": "2025-12-14",
-          "startTime": "07:00",
-          "endTime": "19:00",
-          "unit": "UCI",
-          "field": "Críticos",
-          "description": "Turno de alta especialización en UCI.",
-          "facility": {
-            "id": "fac_067",
-            "name": "Hospital del Mar",
-            "rating": 4.0,
-            "reviewsCount": 15,
-            "address": "Passeig Marítim 25, 08003",
-            "city": "Barcelona",
-            "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=hospital+del+mar"
-          },
-          "remuneration": {
-            "facilityAmount": 260,
-            "bonusAmount": 35,
-            "total": 295
-          },
-          "tags": {
-            "parking": true,
-            "food": false,
-            "cafeteria": true,
-            "programa": "casiopea"
-          }
-        }
-      },
-      {
-        "shiftDetails": {
-          "id": "shift_103",
-          "professionalId": "pro_123",
-          "date": "2025-12-22",
-          "startTime": "15:00",
-          "endTime": "23:00",
-          "unit": "Hospitalización",
-          "field": "Planta de Cirugía",
-          "description": "Turno estable en planta.",
-          "facility": {
-            "id": "fac_203",
-            "name": "Hospital Sant Pau",
-            "rating": 4.4,
-            "reviewsCount": 42,
-            "address": "C. Sant Quintí 89, 08041",
-            "city": "Barcelona",
-            "googleMapsUrl": "https://www.google.com/maps/search/?api=1&query=hospital+sant+pau"
-          },
-          "remuneration": {
-            "facilityAmount": 200,
-            "bonusAmount": 30,
-            "total": 230
-          },
-          "tags": {
-            "parking": false,
-            "food": false,
-            "cafeteria": true,
-            "programa": "casiopea"
-          }
-        }
-      }
-    ]
+      ]
+    }
     setJsonInput(JSON.stringify(exampleData, null, 2))
+  }
+
+  const handleGoToCalendar = () => {
+    navigate('/calendar')
   }
 
   return (
@@ -165,15 +211,20 @@ export default function ShiftsDataReceiver() {
             📥 Receptor de Datos de Turnos
           </h1>
           <p className="text-sm text-gray-600">
-            Utilidad para recibir y almacenar datos de turnos mediante POST.
-            Los datos se guardan en sessionStorage y se usan automáticamente en el calendario.
+            Pega el JSON con los turnos en formato <code className="bg-gray-100 px-1 rounded">shiftsByDate</code> y guárdalos para verlos en el calendario.
           </p>
           
           {storedCount > 0 && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
               <p className="text-sm text-green-800">
                 📦 Actualmente hay <strong>{storedCount} turnos</strong> almacenados
               </p>
+              <button
+                onClick={handleGoToCalendar}
+                className="text-sm text-green-700 hover:text-green-900 font-medium underline"
+              >
+                Ver calendario →
+              </button>
             </div>
           )}
         </div>
@@ -181,21 +232,21 @@ export default function ShiftsDataReceiver() {
         {/* JSON Input */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            JSON de Turnos (Array)
+            JSON de Turnos (formato shiftsByDate)
           </label>
           <textarea
             value={jsonInput}
             onChange={(e) => setJsonInput(e.target.value)}
-            placeholder='[{"shiftDetails": {...}}, ...]'
+            placeholder='{"shiftsByDate": [{"date": "2025-12-05", "shifts": [...]}]}'
             className="w-full h-96 p-4 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-wrap gap-3 mt-4">
             <PrimaryButton
               onClick={handleSubmit}
               disabled={status === 'loading' || !jsonInput.trim()}
             >
-              {status === 'loading' ? 'Procesando...' : 'Recibir y Almacenar Datos'}
+              {status === 'loading' ? 'Procesando...' : 'Guardar Turnos'}
             </PrimaryButton>
             
             <SecondaryButton onClick={handleLoadExample}>
@@ -203,9 +254,14 @@ export default function ShiftsDataReceiver() {
             </SecondaryButton>
             
             {storedCount > 0 && (
-              <SecondaryButton onClick={handleClear}>
-                Limpiar Datos
-              </SecondaryButton>
+              <>
+                <SecondaryButton onClick={handleGoToCalendar}>
+                  Ver Calendario 📅
+                </SecondaryButton>
+                <SecondaryButton onClick={handleClear}>
+                  Limpiar Datos
+                </SecondaryButton>
+              </>
             )}
           </div>
         </div>
@@ -233,22 +289,38 @@ export default function ShiftsDataReceiver() {
             📖 Instrucciones
           </h2>
           <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700">
-            <li>Pega el JSON con el array de turnos en el campo de texto</li>
-            <li>Haz clic en "Recibir y Almacenar Datos"</li>
-            <li>Los datos se guardarán en sessionStorage</li>
+            <li>Pega el JSON con el formato <code className="bg-gray-100 px-1 rounded">shiftsByDate</code></li>
+            <li>Haz clic en "Guardar Turnos"</li>
             <li>Ve al calendario para ver los turnos pintados</li>
             <li>Los datos persisten durante toda la sesión del navegador</li>
           </ol>
 
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-xs text-yellow-800">
-              <strong>Nota:</strong> Esta página es solo para desarrollo/testing. 
-              En producción, los datos vendrán automáticamente desde tu API o webhook de n8n.
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-xs text-blue-800">
+              <strong>Formato esperado:</strong>
             </p>
+            <pre className="mt-2 text-xs text-blue-700 overflow-x-auto">
+{`{
+  "shiftsByDate": [
+    {
+      "date": "2025-12-05",
+      "shifts": [
+        {
+          "id": 12345,
+          "facility": { "name": "Hospital..." },
+          "localStartTime": "08:00",
+          "localFinishTime": "15:00",
+          "shiftTotalPay": 270,
+          ...
+        }
+      ]
+    }
+  ]
+}`}
+            </pre>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

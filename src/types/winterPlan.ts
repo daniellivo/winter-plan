@@ -61,6 +61,7 @@ export interface ShiftTags {
 
 export interface ShiftDetails {
   id: string
+  externalId?: string
   professionalId: string
   facility: Facility
   unit: string

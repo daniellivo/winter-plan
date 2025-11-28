@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
+import { IconInfoCircle, IconCheck, IconWifi } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
 import { getWinterPlan, claimShift, sendCompletedPlan } from '../api/winterPlan'
+import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { WinterPlan, Shift } from '../types/winterPlan'
@@ -28,6 +29,14 @@ export default function WinterPlanCalendar() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
 
+  // Firebase real-time listener
+  const { 
+    winterPlan: firebasePlan, 
+    loading: firebaseLoading, 
+    isConnected: firebaseConnected,
+    lastUpdate: firebaseLastUpdate 
+  } = useFirebaseShifts(professionalId)
+
   const loadPlan = useCallback(async () => {
     try {
       setLoading(true)
@@ -41,9 +50,21 @@ export default function WinterPlanCalendar() {
     }
   }, [professionalId])
 
+  // Load initial data if Firebase is not connected
   useEffect(() => {
-    loadPlan()
-  }, [loadPlan])
+    if (!firebaseConnected) {
+      loadPlan()
+    }
+  }, [loadPlan, firebaseConnected])
+
+  // Use Firebase data when available (real-time updates)
+  useEffect(() => {
+    if (firebasePlan) {
+      console.log('🔥 Using Firebase real-time data')
+      setPlan(firebasePlan)
+      setLoading(false)
+    }
+  }, [firebasePlan])
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -205,7 +226,10 @@ export default function WinterPlanCalendar() {
   const canGoPrevious = !(currentYear === 2025 && currentMonth === 11)
   const canGoNext = !(currentYear === 2026 && currentMonth === 0)
 
-  if (loading && !plan) {
+  // Show loading state
+  const isLoading = loading || (firebaseLoading && !plan)
+  
+  if (isLoading && !plan) {
     return (
       <div className="min-h-screen bg-white">
         <header className="sticky top-0 z-50 bg-white">
@@ -300,6 +324,20 @@ export default function WinterPlanCalendar() {
         <p className="text-sm text-gray-500 text-center pb-3">
           Turnos en Diciembre y Enero
         </p>
+        {/* Real-time connection indicator */}
+        {firebaseConnected && (
+          <div className="flex items-center justify-center gap-1.5 pb-2">
+            <IconWifi size={14} className="text-green-500" />
+            <span className="text-xs text-green-600">
+              Conectado en tiempo real
+              {firebaseLastUpdate && (
+                <span className="text-gray-400 ml-1">
+                  · Actualizado {firebaseLastUpdate.toLocaleTimeString()}
+                </span>
+              )}
+            </span>
+          </div>
+        )}
       </header>
 
       <div className="px-4">

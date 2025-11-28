@@ -3,16 +3,19 @@ import { useParams } from 'react-router-dom'
 import { 
   IconStar, 
   IconMapPin, 
-  IconChevronRight, 
+  IconChevronRight,
+  IconChevronDown,
   IconCopy, 
   IconParking, 
   IconToolsKitchen2, 
   IconCoffee, 
   IconDeviceDesktop, 
-  IconStethoscope, 
-  IconClock,
-  IconCalendar,
   IconHeart,
+  IconHeartbeat,
+  IconCalendarEvent,
+  IconSun,
+  IconSunset2,
+  IconMoon,
   IconCheck,
   IconInfoCircle
 } from '@tabler/icons-react'
@@ -32,6 +35,7 @@ export default function ShiftDetails() {
   const [shift, setShift] = useState<ShiftDetailsType | null>(null)
   const [loading, setLoading] = useState(true)
   const [claiming, setClaiming] = useState(false)
+  const [showFullDescription, setShowFullDescription] = useState(false)
 
   useEffect(() => {
     if (shiftId) {
@@ -98,6 +102,33 @@ export default function ShiftDetails() {
     }
   }
 
+  // Get time icon and color based on shift time (TM/TT/TN)
+  const getTimeIconAndColor = () => {
+    if (!shift) return { icon: <IconSun size={18} />, colorClass: 'text-gray-400' }
+    
+    const hour = parseInt(shift.startTime.split(':')[0])
+    
+    // TM: Morning (7:00 - 13:59) - Sun, yellow/orange
+    if (hour >= 7 && hour < 14) {
+      return { 
+        icon: <IconSun size={18} />, 
+        colorClass: 'text-amber-500' 
+      }
+    }
+    // TT: Afternoon (14:00 - 20:59) - Sunset, orange
+    if (hour >= 14 && hour < 21) {
+      return { 
+        icon: <IconSunset2 size={18} />, 
+        colorClass: 'text-orange-500' 
+      }
+    }
+    // TN: Night (21:00 - 6:59) - Moon, dark blue
+    return { 
+      icon: <IconMoon size={18} />, 
+      colorClass: 'text-indigo-600' 
+    }
+  }
+
   // Build tags array from boolean fields
   const getActiveTags = () => {
     if (!shift) return []
@@ -148,6 +179,8 @@ export default function ShiftDetails() {
   }
 
   const activeTags = getActiveTags()
+  const timeIconData = getTimeIconAndColor()
+  const hasBonus = shift.remuneration.bonusAmount > 0
 
   return (
     <div className="min-h-screen bg-white pb-24">
@@ -173,42 +206,51 @@ export default function ShiftDetails() {
           )}
         </div>
 
-        {/* Shift details */}
+        {/* Shift details - Updated icons */}
         <div className="space-y-3 mb-6">
           <div className="flex items-center gap-3 text-gray-700">
-            <IconStethoscope size={18} className="text-gray-400" />
+            <IconHeart size={18} className="text-gray-400" />
             <span className="text-sm">{shift.unit}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <IconHeart size={18} className="text-gray-400" />
+            <IconHeartbeat size={18} className="text-gray-400" />
             <span className="text-sm">{shift.field}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <IconCalendar size={18} className="text-gray-400" />
+            <IconCalendarEvent size={18} className="text-gray-400" />
             <span className="text-sm capitalize">{formatDate(shift.date)}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <IconClock size={18} className="text-gray-400" />
+            <span className={timeIconData.colorClass}>{timeIconData.icon}</span>
             <span className="text-sm">{shift.startTime} - {shift.endTime}</span>
           </div>
         </div>
 
-        {/* Remuneration */}
+        {/* Remuneration - Conditional display */}
         <div className="border-t border-gray-100 pt-4 mb-6">
           <h3 className="font-semibold text-gray-900 mb-3">Remuneración</h3>
           <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Hospital</span>
-              <span className="text-gray-900">{shift.remuneration.facilityAmount}€</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Livo Bonus</span>
-              <span className="text-gray-900">{shift.remuneration.bonusAmount}€</span>
-            </div>
-            <div className="flex justify-between text-sm font-semibold pt-2 border-t border-gray-100">
-              <span className="text-gray-900">Total</span>
-              <span className="text-gray-900">{shift.remuneration.total}€</span>
-            </div>
+            {hasBonus ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Hospital</span>
+                  <span className="text-gray-900">{shift.remuneration.facilityAmount}€</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Livo Bonus</span>
+                  <span className="text-gray-900">{shift.remuneration.bonusAmount}€</span>
+                </div>
+                <div className="flex justify-between text-sm font-semibold pt-2 border-t border-gray-100">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-gray-900">{shift.remuneration.total}€</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between text-sm font-semibold">
+                <span className="text-gray-900">Total</span>
+                <span className="text-gray-900">{shift.remuneration.total}€</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -228,15 +270,26 @@ export default function ShiftDetails() {
           </div>
         </div>
 
-        {/* Description */}
-        <div className="border-t border-gray-100 pt-4 mb-6">
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {shift.description}
-          </p>
-          <button className="text-[#2cbeff] text-sm font-medium mt-2">
-            Ver más
-          </button>
-        </div>
+        {/* Description - Expandable */}
+        {shift.description && (
+          <div className="border-t border-gray-100 pt-4 mb-6">
+            <p className={`text-sm text-gray-600 leading-relaxed ${!showFullDescription ? 'line-clamp-3' : ''}`}>
+              {shift.description}
+            </p>
+            {shift.description.length > 120 && (
+              <button 
+                onClick={() => setShowFullDescription(!showFullDescription)}
+                className="text-[#2cbeff] text-sm font-medium mt-2 flex items-center gap-1"
+              >
+                {showFullDescription ? 'Ver menos' : 'Ver más'}
+                <IconChevronDown 
+                  size={16} 
+                  className={`transition-transform ${showFullDescription ? 'rotate-180' : ''}`} 
+                />
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Address - Opens Google Maps */}
         <div className="border-t border-gray-100 pt-4 mb-6">
@@ -270,26 +323,26 @@ export default function ShiftDetails() {
           </button>
         </div>
 
-        {/* Cancellation policy */}
+        {/* Cancellation policy - Aligned chevron */}
         <div className="border-t border-gray-100 pt-4 mb-6">
           <button 
             onClick={() => navigate('/cancellation-policy/winter_default')}
-            className="w-full flex items-center justify-between py-2"
+            className="w-full flex items-center justify-between py-2 hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
           >
             <span className="font-semibold text-gray-900">Política de cancelación</span>
             <IconChevronRight size={20} className="text-[#2cbeff]" />
           </button>
         </div>
 
-        {/* Shift ID */}
+        {/* External ID */}
         <div className="border-t border-gray-100 pt-4 mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Turno Nº</p>
-              <p className="text-sm text-gray-900">{shiftId}</p>
+              <p className="text-sm text-gray-500">Nº Turno</p>
+              <p className="text-sm text-gray-900 font-medium">{shift.externalId || shiftId}</p>
             </div>
             <button 
-              onClick={() => copyToClipboard(shiftId!)}
+              onClick={() => copyToClipboard(shift.externalId || shiftId!)}
               className="p-2 text-gray-400 hover:text-gray-600"
             >
               <IconCopy size={18} />

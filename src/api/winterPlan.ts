@@ -1,3 +1,5 @@
+import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { db, isFirebaseConfigured } from '../config/firebase'
 import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../types/winterPlan'
 
 // ⚠️ TODO: Reemplazar con la URL real de tu API
@@ -11,6 +13,52 @@ const PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:300
 // API response type - wraps shiftDetails
 interface ShiftDetailsResponse {
   shiftDetails: ShiftDetails
+}
+
+// n8n format types
+interface N8nShift {
+  id: number | string
+  externalId?: string
+  facility: {
+    id: number | string
+    name: string
+    logo?: string
+    address?: string
+    addressCity?: string
+    mapLink?: string
+    facilityReview?: {
+      averageRating: number
+      totalReviews: number
+    }
+    shiftGuidanceDocumentUrl?: string
+    generalInfoDocumentUrl?: string
+    allowInternalProsToCancelApprovedClaims?: boolean
+  }
+  localStartTime: string
+  localFinishTime: string
+  shiftTimeInDay?: 'MORNING_SHIFT' | 'AFTERNOON_SHIFT' | 'NIGHT_SHIFT'
+  specialization?: {
+    name?: string
+    displayText?: string
+  }
+  unit?: string
+  shiftTotalPay: number
+  paymentBreakdown?: Array<{
+    label: string
+    amount: string
+  }>
+  tags?: string[]
+  details?: string
+  status?: string
+}
+
+interface N8nShiftsByDate {
+  date: string
+  shifts: N8nShift[]
+}
+
+interface N8nData {
+  shiftsByDate: N8nShiftsByDate[]
 }
 
 // Storage key for shifts data
@@ -208,7 +256,88 @@ const mockCancellationPolicy: CancellationPolicy = {
 // Use mocks in development, real API in production
 const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
 
-// Transform API response to WinterPlan format
+// Get shift label based on time of day (for n8n format)
+function getShiftLabel(shift: N8nShift): string {
+  if (shift.shiftTimeInDay) {
+    switch (shift.shiftTimeInDay) {
+      case 'MORNING_SHIFT': return 'TM'
+      case 'AFTERNOON_SHIFT': return 'TT'
+      case 'NIGHT_SHIFT': return 'TN'
+    }
+  }
+  const hour = parseInt(shift.localStartTime.split(':')[0])
+  if (hour >= 7 && hour < 14) return 'TM'
+  if (hour >= 14 && hour < 21) return 'TT'
+  return 'TN'
+}
+
+// Transform n8n format (shiftsByDate) to WinterPlan format
+function transformN8nToWinterPlan(data: N8nData, professionalId: string): WinterPlan {
+  const monthsMap = new Map<string, Map<string, Shift[]>>()
+  
+  data.shiftsByDate.forEach(({ date, shifts }) => {
+    const month = date.substring(0, 7)
+    
+    if (!monthsMap.has(month)) {
+      monthsMap.set(month, new Map())
+    }
+    
+    const daysMap = monthsMap.get(month)!
+    if (!daysMap.has(date)) {
+      daysMap.set(date, [])
+    }
+    
+    shifts.forEach(shift => {
+      // Skip shifts that are in waiting list
+      if (shift.tags?.includes('inWaitingList')) {
+        return
+      }
+      
+      daysMap.get(date)!.push({
+        id: String(shift.id),
+        label: getShiftLabel(shift),
+        startTime: shift.localStartTime,
+        endTime: shift.localFinishTime,
+        facilityName: shift.facility.name,
+        unit: shift.unit || shift.specialization?.displayText || '',
+        field: shift.specialization?.displayText || '',
+        status: 'pending',
+        price: shift.shiftTotalPay
+      })
+    })
+  })
+  
+  const months = Array.from(monthsMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, daysMap]) => ({
+      month,
+      days: Array.from(daysMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, shifts]) => ({
+          date,
+          shifts: shifts.sort((a, b) => a.startTime.localeCompare(b.startTime))
+        }))
+    }))
+  
+  return {
+    professionalId,
+    status: 'ready',
+    generatedAt: new Date().toISOString(),
+    months
+  }
+}
+
+// Check if data is in n8n format
+function isN8nFormat(data: unknown): data is N8nData {
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    'shiftsByDate' in data &&
+    Array.isArray((data as N8nData).shiftsByDate)
+  )
+}
+
+// Transform API response to WinterPlan format (legacy format)
 function transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], professionalId: string): WinterPlan {
   // Group shifts by month and date
   const monthsMap = new Map<string, Map<string, Shift[]>>()
@@ -268,14 +397,42 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
   }
   
   // First, try to use stored shifts data (from receiveShiftsData or POST endpoint)
-  const storedShifts = getStoredShiftsData()
-  if (storedShifts && storedShifts.length > 0) {
-    console.log('📦 Using stored shifts data:', storedShifts.length, 'shifts')
+  const storedResult = getStoredShiftsData()
+  if (storedResult) {
     await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
-    return transformShiftsToWinterPlan(storedShifts, professionalId)
+    
+    if (storedResult.isN8n) {
+      console.log('📦 Using stored n8n format data')
+      return transformN8nToWinterPlan(storedResult.data as N8nData, professionalId)
+    } else {
+      const legacyData = storedResult.data as ShiftDetailsResponse[]
+      if (legacyData.length > 0) {
+        console.log('📦 Using stored shifts data:', legacyData.length, 'shifts')
+        return transformShiftsToWinterPlan(legacyData, professionalId)
+      }
+    }
+  }
+
+  // Second, try to fetch from Firebase (one-time fetch)
+  // Note: For real-time updates, use the useFirebaseShifts hook instead
+  if (isFirebaseConfigured()) {
+    console.log('🔥 Trying Firebase...')
+    const firebaseData = await getShiftsFromFirebase(professionalId)
+    if (firebaseData) {
+      console.log('✅ Got data from Firebase')
+      // Store in sessionStorage for future use
+      sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(firebaseData))
+      
+      // Check format and transform accordingly
+      if (isN8nFormat(firebaseData)) {
+        return transformN8nToWinterPlan(firebaseData, professionalId)
+      } else if (Array.isArray(firebaseData) && firebaseData.length > 0) {
+        return transformShiftsToWinterPlan(firebaseData, professionalId)
+      }
+    }
   }
   
-  // Second, try to fetch from proxy server (if available)
+  // Third, try to fetch from proxy server (if available)
   try {
     console.log('🔄 Trying proxy server...')
     const proxyResponse = await fetch(`${PROXY_SERVER_URL}/api/shifts/${professionalId}`)
@@ -320,13 +477,62 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
   }
   
   // First, try to find in stored shifts data
-  const storedShifts = getStoredShiftsData()
-  if (storedShifts) {
-    const foundShift = storedShifts.find(item => item.shiftDetails.id === shiftId)
-    if (foundShift) {
-      console.log('📦 Using stored shift details for:', shiftId)
-      await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
-      return foundShift.shiftDetails
+  const storedResult = getStoredShiftsData()
+  if (storedResult) {
+    await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
+    
+    if (storedResult.isN8n) {
+      // n8n format - search in shiftsByDate
+      const n8nData = storedResult.data as N8nData
+      for (const dayData of n8nData.shiftsByDate) {
+        const found = dayData.shifts.find(s => String(s.id) === shiftId)
+        if (found) {
+          console.log('📦 Using stored n8n shift details for:', shiftId)
+          // Transform n8n shift to ShiftDetails format
+          return {
+            id: String(found.id),
+            externalId: found.externalId || String(found.id),
+            professionalId: '',
+            facility: {
+              id: String(found.facility.id),
+              name: found.facility.name,
+              rating: found.facility.facilityReview?.averageRating || 0,
+              reviewsCount: found.facility.facilityReview?.totalReviews || 0,
+              address: found.facility.address || '',
+              city: found.facility.addressCity || '',
+              googleMapsUrl: found.facility.mapLink || '',
+              generalInfoDocumentUrl: found.facility.generalInfoDocumentUrl,
+              allowInternalProsToCancelApprovedClaims: found.facility.allowInternalProsToCancelApprovedClaims
+            },
+            unit: found.unit || found.specialization?.displayText || '',
+            field: found.specialization?.displayText || '',
+            date: dayData.date,
+            startTime: found.localStartTime,
+            endTime: found.localFinishTime,
+            remuneration: {
+              facilityAmount: found.shiftTotalPay,
+              bonusAmount: 0,
+              currency: 'EUR',
+              total: found.shiftTotalPay
+            },
+            tags: {
+              parking: found.tags?.includes('parking') || false,
+              food: found.tags?.includes('food') || false,
+              cafeteria: found.tags?.includes('cafeteria') || false,
+              casiopea: found.tags?.includes('casiopea') || false
+            },
+            description: found.details || ''
+          }
+        }
+      }
+    } else {
+      // Legacy format
+      const legacyData = storedResult.data as ShiftDetailsResponse[]
+      const foundShift = legacyData.find(item => item.shiftDetails.id === shiftId)
+      if (foundShift) {
+        console.log('📦 Using stored shift details for:', shiftId)
+        return foundShift.shiftDetails
+      }
     }
   }
   
@@ -458,15 +664,28 @@ export async function receiveShiftsData(
 /**
  * Get stored shifts data from sessionStorage
  * This is used internally to retrieve shifts that were pushed via receiveShiftsData
+ * Supports both legacy format and n8n format (shiftsByDate)
  * 
- * @returns Array of shift details or null if no data stored
+ * @returns Object with data and format type, or null if no data stored
  */
-export function getStoredShiftsData(): ShiftDetailsResponse[] | null {
+export function getStoredShiftsData(): { data: ShiftDetailsResponse[] | N8nData; isN8n: boolean } | null {
   try {
     const stored = sessionStorage.getItem(SHIFTS_STORAGE_KEY)
     if (!stored) return null
     
-    return JSON.parse(stored)
+    const parsed = JSON.parse(stored)
+    
+    // Check if it's n8n format
+    if (isN8nFormat(parsed)) {
+      return { data: parsed, isN8n: true }
+    }
+    
+    // Legacy format (array of ShiftDetailsResponse)
+    if (Array.isArray(parsed)) {
+      return { data: parsed, isN8n: false }
+    }
+    
+    return null
   } catch (error) {
     console.error('❌ Error reading stored shifts:', error)
     return null
@@ -524,4 +743,102 @@ export async function sendCompletedPlan(
     console.error('❌ Failed to send completed plan:', error)
     throw error
   }
+}
+
+// ============================================
+// Firebase Integration Functions
+// ============================================
+
+/**
+ * Save shifts data to Firebase Firestore
+ * This can be called from the proxy server or directly from n8n
+ * 
+ * @param professionalId - ID of the professional
+ * @param shiftsData - Array of shift details
+ * @returns Success status
+ */
+export async function saveShiftsToFirebase(
+  professionalId: string,
+  shiftsData: ShiftDetailsResponse[]
+): Promise<{ status: string; count: number }> {
+  if (!isFirebaseConfigured() || !db) {
+    console.log('⚠️ Firebase not configured, falling back to sessionStorage')
+    // Fall back to sessionStorage
+    sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(shiftsData))
+    return { status: 'fallback', count: shiftsData.length }
+  }
+
+  try {
+    const docRef = doc(db, 'shifts', professionalId)
+    
+    await setDoc(docRef, {
+      shifts: shiftsData,
+      updatedAt: new Date().toISOString(),
+      professionalId
+    })
+
+    console.log('✅ Shifts saved to Firebase:', shiftsData.length, 'shifts')
+    
+    // Also save to sessionStorage as backup
+    sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(shiftsData))
+    
+    return { status: 'success', count: shiftsData.length }
+  } catch (error) {
+    console.error('❌ Failed to save to Firebase:', error)
+    // Fall back to sessionStorage
+    sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(shiftsData))
+    return { status: 'fallback', count: shiftsData.length }
+  }
+}
+
+/**
+ * Get shifts data from Firebase Firestore (one-time fetch, not real-time)
+ * For real-time updates, use the useFirebaseShifts hook instead
+ * Supports both n8n format (shiftsByDate) and legacy format
+ * 
+ * @param professionalId - ID of the professional
+ * @returns Data object (n8n or legacy format) or null
+ */
+export async function getShiftsFromFirebase(
+  professionalId: string
+): Promise<N8nData | ShiftDetailsResponse[] | null> {
+  if (!isFirebaseConfigured() || !db) {
+    console.log('⚠️ Firebase not configured')
+    return null
+  }
+
+  try {
+    const docRef = doc(db, 'shifts', professionalId)
+    const docSnap = await getDoc(docRef)
+
+    if (docSnap.exists()) {
+      const data = docSnap.data()
+      
+      // Check for n8n format first
+      if (data.shiftsByDate && Array.isArray(data.shiftsByDate)) {
+        console.log('📥 Got n8n format data from Firebase:', data.shiftsByDate.length, 'dates')
+        return data as N8nData
+      }
+      
+      // Fall back to legacy format
+      const shifts = data.shifts || data.data || []
+      if (Array.isArray(shifts) && shifts.length > 0) {
+        console.log('📥 Got legacy shifts from Firebase:', shifts.length)
+        return shifts
+      }
+    }
+
+    console.log('📭 No shifts found in Firebase for:', professionalId)
+    return null
+  } catch (error) {
+    console.error('❌ Failed to get from Firebase:', error)
+    return null
+  }
+}
+
+/**
+ * Check if Firebase is available and configured
+ */
+export function isFirebaseAvailable(): boolean {
+  return isFirebaseConfigured() && db !== null
 }

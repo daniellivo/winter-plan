@@ -5,7 +5,7 @@
  * Usage:
  * 1. Start this server: node server-proxy.js
  * 2. From n8n, POST to: http://localhost:3001/api/receive-shifts?professionalId=pro_123
- * 3. Body: [{"shiftDetails": {...}}, ...]
+ * 3. Body: { "shiftsByDate": [...] }  (n8n format)
  */
 
 import express from 'express'
@@ -27,19 +27,34 @@ const shiftsStore = new Map()
 // POST endpoint to receive shifts
 app.post('/api/receive-shifts', (req, res) => {
   try {
-    const shiftsData = req.body
+    const body = req.body
     const professionalId = req.query.professionalId
 
-    console.log('📥 Received shifts data:', {
-      count: Array.isArray(shiftsData) ? shiftsData.length : 0,
-      professionalId
-    })
-
-    // Validate data
-    if (!Array.isArray(shiftsData)) {
+    // Detect format: n8n format { shiftsByDate: [...] } or legacy array format
+    let shiftsData
+    let shiftsCount = 0
+    
+    if (body && body.shiftsByDate && Array.isArray(body.shiftsByDate)) {
+      // n8n format: { shiftsByDate: [{ date: "...", shifts: [...] }, ...] }
+      shiftsData = body
+      shiftsCount = body.shiftsByDate.reduce((acc, day) => acc + (day.shifts?.length || 0), 0)
+      console.log('📥 Received n8n format (shiftsByDate):', {
+        dates: body.shiftsByDate.length,
+        totalShifts: shiftsCount,
+        professionalId
+      })
+    } else if (Array.isArray(body)) {
+      // Legacy format: [{ shiftDetails: {...} }, ...]
+      shiftsData = body
+      shiftsCount = body.length
+      console.log('📥 Received legacy format (array):', {
+        count: shiftsCount,
+        professionalId
+      })
+    } else {
       return res.status(400).json({
         status: 'error',
-        message: 'Body must be an array of shifts'
+        message: 'Body must be { shiftsByDate: [...] } or an array of shifts'
       })
     }
 
@@ -61,7 +76,7 @@ app.post('/api/receive-shifts', (req, res) => {
     // Return success response
     res.json({
       status: 'success',
-      count: shiftsData.length,
+      count: shiftsCount,
       professionalId,
       message: 'Shifts received and stored',
       redirectUrl: `http://localhost:4173/winter-plan/calendar?professionalId=${professionalId}`
@@ -111,7 +126,12 @@ app.listen(PORT, () => {
 💡 From n8n, send POST request to:
    http://localhost:${PORT}/api/receive-shifts?professionalId=pro_123
    
-   Body: [{"shiftDetails": {...}}, ...]
+   Body (n8n format):
+   {
+     "shiftsByDate": [
+       { "date": "2025-12-05", "shifts": [...] }
+     ]
+   }
   `)
 })
 
