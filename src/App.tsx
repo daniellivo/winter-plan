@@ -7,9 +7,9 @@ import ShiftDetails from './pages/ShiftDetails'
 import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 
-// Webhook URL for tracking sessions
+// Webhook URL for tracking sessions (session_start event)
 // ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
-const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/104d7026-2f4f-4f50-b427-1f129f060fa6'
+const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/b695101c-3160-4721-a4de-6feeac5b913e'
 
 // Context to share URL params across all pages
 interface AppContextType {

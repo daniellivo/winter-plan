@@ -6,7 +6,7 @@ export interface Shift {
   facilityName: string
   unit?: string
   field?: string
-  status?: 'pending' | 'claimed' | 'rejected'
+  status?: 'pending' | 'claimed' | 'rejected' | 'confirmed' // confirmed = APPROVED or PENDING_APPROVAL from API
   price?: number
 }
 

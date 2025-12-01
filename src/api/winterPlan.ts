@@ -64,6 +64,56 @@ interface N8nData {
 // Storage key for shifts data
 const SHIFTS_STORAGE_KEY = 'winter_plan_shifts_data'
 
+// Storage key for claimed shifts (persists across navigation)
+const CLAIMED_SHIFTS_KEY = 'winter_plan_claimed_shifts'
+
+// ============================================
+// Claimed Shifts Persistence Functions
+// ============================================
+
+/**
+ * Save a shift as claimed in sessionStorage
+ */
+export function saveClaimedShift(shiftId: string): void {
+  const claimed = getClaimedShiftIds()
+  if (!claimed.includes(shiftId)) {
+    claimed.push(shiftId)
+    sessionStorage.setItem(CLAIMED_SHIFTS_KEY, JSON.stringify(claimed))
+    console.log('✅ Saved claimed shift:', shiftId, 'Total:', claimed.length)
+  }
+}
+
+/**
+ * Remove a shift from claimed in sessionStorage
+ */
+export function removeClaimedShift(shiftId: string): void {
+  const claimed = getClaimedShiftIds()
+  const filtered = claimed.filter(id => id !== shiftId)
+  sessionStorage.setItem(CLAIMED_SHIFTS_KEY, JSON.stringify(filtered))
+  console.log('🗑️ Removed claimed shift:', shiftId, 'Total:', filtered.length)
+}
+
+/**
+ * Get all claimed shift IDs from sessionStorage
+ */
+export function getClaimedShiftIds(): string[] {
+  try {
+    const stored = sessionStorage.getItem(CLAIMED_SHIFTS_KEY)
+    if (!stored) return []
+    return JSON.parse(stored)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Clear all claimed shifts from sessionStorage
+ */
+export function clearClaimedShifts(): void {
+  sessionStorage.removeItem(CLAIMED_SHIFTS_KEY)
+  console.log('🗑️ Cleared all claimed shifts')
+}
+
 // Mutable state for mocks - this simulates a backend database
 let mockShiftsState: Map<string, Shift['status']> = new Map()
 
@@ -271,10 +321,32 @@ function getShiftLabel(shift: N8nShift): string {
   return 'TN'
 }
 
+// Check if a shift status indicates it's already confirmed (APPROVED or PENDING_APPROVAL)
+function isConfirmedStatus(status?: string): boolean {
+  if (!status) return false
+  const upperStatus = status.toUpperCase()
+  return upperStatus === 'APPROVED' || upperStatus === 'PENDING_APPROVAL'
+}
+
 // Transform n8n format (shiftsByDate) to WinterPlan format
 function transformN8nToWinterPlan(data: N8nData, professionalId: string): WinterPlan {
   const monthsMap = new Map<string, Map<string, Shift[]>>()
+  // Track confirmed slots per day: Map<date, Set<label>>
+  const confirmedSlots = new Map<string, Set<string>>()
   
+  // First pass: identify all confirmed shifts and their slots
+  data.shiftsByDate.forEach(({ date, shifts }) => {
+    shifts.forEach(shift => {
+      if (isConfirmedStatus(shift.status)) {
+        if (!confirmedSlots.has(date)) {
+          confirmedSlots.set(date, new Set())
+        }
+        confirmedSlots.get(date)!.add(getShiftLabel(shift))
+      }
+    })
+  })
+  
+  // Second pass: process all shifts
   data.shiftsByDate.forEach(({ date, shifts }) => {
     const month = date.substring(0, 7)
     
@@ -293,17 +365,33 @@ function transformN8nToWinterPlan(data: N8nData, professionalId: string): Winter
         return
       }
       
+      const shiftLabel = getShiftLabel(shift)
+      const isConfirmed = isConfirmedStatus(shift.status)
+      
+      // Skip available shifts in slots that already have a confirmed shift
+      if (!isConfirmed && confirmedSlots.has(date) && confirmedSlots.get(date)!.has(shiftLabel)) {
+        console.log(`⏭️ Skipping shift ${shift.id} - slot ${shiftLabel} on ${date} already has a confirmed shift`)
+        return
+      }
+      
+      const shiftStatus: Shift['status'] = isConfirmed ? 'confirmed' : 'pending'
+      
       daysMap.get(date)!.push({
         id: String(shift.id),
-        label: getShiftLabel(shift),
+        label: shiftLabel,
         startTime: shift.localStartTime,
         endTime: shift.localFinishTime,
         facilityName: shift.facility.name,
         unit: shift.unit || shift.specialization?.displayText || '',
         field: shift.specialization?.displayText || '',
-        status: 'pending',
+        status: shiftStatus,
         price: shift.shiftTotalPay
       })
+      
+      // Log confirmed shifts
+      if (isConfirmed) {
+        console.log(`✅ Confirmed shift: ${shift.id} (${shiftLabel}) on ${date} - status: ${shift.status}`)
+      }
     })
   })
   
@@ -550,25 +638,20 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
   return data.shiftDetails
 }
 
-export async function claimShift(shiftId: string, professionalId: string): Promise<{ status: string; claimId: string }> {
-  if (USE_MOCKS) {
-    await new Promise(resolve => setTimeout(resolve, 300))
-    // Update the shift status to claimed
-    updateShiftStatus(shiftId, 'claimed')
-    return { status: 'success', claimId: `claim_${Date.now()}` }
-  }
-  
-  const response = await fetch(`${API_BASE_URL}/winter-plan/shifts/${shiftId}/claim`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
-    },
-    body: JSON.stringify({ professionalId, source: 'winter_plan' })
-  })
-  
-  if (!response.ok) throw new Error('Failed to claim shift')
-  return response.json()
+export async function claimShift(shiftId: string, _professionalId: string): Promise<{ status: string; claimId: string }> {
+  // Local only - no API call, just update local state and persist
+  await new Promise(resolve => setTimeout(resolve, 100)) // Small delay for UX
+  updateShiftStatus(shiftId, 'claimed')
+  saveClaimedShift(shiftId) // Persist to sessionStorage
+  return { status: 'success', claimId: `claim_${Date.now()}` }
+}
+
+/**
+ * Unclaim a shift (remove from claimed list)
+ */
+export function unclaimShift(shiftId: string): void {
+  updateShiftStatus(shiftId, 'pending')
+  removeClaimedShift(shiftId)
 }
 
 export async function sendFeedback(
@@ -583,7 +666,7 @@ export async function sendFeedback(
     return { status: 'ok' }
   }
   
-  const response = await fetch(`${API_BASE_URL}/winter-plan/shifts/${shiftId}/feedback`, {
+  const response = await fetch(`${API_BASE_URL}/shifts/${shiftId}/feedback`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -602,7 +685,7 @@ export async function getCancellationPolicy(policyId: string): Promise<Cancellat
     return mockCancellationPolicy
   }
   
-  const response = await fetch(`${API_BASE_URL}/winter-plan/cancellation-policies/${policyId}`, {
+  const response = await fetch(`${API_BASE_URL}/cancellation-policies/${policyId}`, {
     headers: {
       'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
     }
@@ -702,25 +785,21 @@ export function clearStoredShiftsData(): void {
 
 /**
  * Send completed plan to n8n webhook
- * Sends only the IDs of shifts that have been claimed (confirmed)
+ * Sends userId and array of shift IDs that have been claimed
  * 
- * @param professionalId - ID of the professional
- * @param confirmedShiftIds - Array of shift IDs that have been claimed
+ * @param userId - Encoded user ID (professionalId)
+ * @param shiftIds - Array of shift IDs that have been claimed
  * @returns Success status
  */
 export async function sendCompletedPlan(
-  professionalId: string,
-  confirmedShiftIds: string[]
+  userId: string,
+  shiftIds: string[]
 ): Promise<{ status: string }> {
-  // Use the same webhook URL as session tracking
   const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/104d7026-2f4f-4f50-b427-1f129f060fa6'
   
   const payload = {
-    event: 'plan_completed',
-    professionalId,
-    confirmedShiftIds,
-    timestamp: new Date().toISOString(),
-    confirmedCount: confirmedShiftIds.length
+    userId,
+    shiftIds
   }
 
   console.log('📤 Sending completed plan to webhook:', payload)

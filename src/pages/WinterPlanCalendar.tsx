@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { IconInfoCircle, IconCheck, IconWifi } from '@tabler/icons-react'
+import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, sendCompletedPlan } from '../api/winterPlan'
+import { getWinterPlan, claimShift, unclaimShift, sendCompletedPlan, getClaimedShiftIds, clearClaimedShifts } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -33,22 +33,46 @@ export default function WinterPlanCalendar() {
   const { 
     winterPlan: firebasePlan, 
     loading: firebaseLoading, 
-    isConnected: firebaseConnected,
-    lastUpdate: firebaseLastUpdate 
+    isConnected: firebaseConnected
   } = useFirebaseShifts(professionalId)
+
+  // Apply claimed shifts from sessionStorage to a plan
+  const applyClaimedShiftsToPlan = useCallback((planData: WinterPlan): WinterPlan => {
+    const claimedIds = getClaimedShiftIds()
+    if (claimedIds.length === 0) return planData
+    
+    console.log('📦 Applying claimed shifts from storage:', claimedIds)
+    
+    return {
+      ...planData,
+      months: planData.months.map(month => ({
+        ...month,
+        days: month.days.map(day => ({
+          ...day,
+          shifts: day.shifts.map(shift => 
+            claimedIds.includes(shift.id) 
+              ? { ...shift, status: 'claimed' as const }
+              : shift
+          )
+        }))
+      }))
+    }
+  }, [])
 
   const loadPlan = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
       const data = await getWinterPlan(professionalId)
-      setPlan(data)
+      // Apply any claimed shifts from sessionStorage
+      const planWithClaimed = applyClaimedShiftsToPlan(data)
+      setPlan(planWithClaimed)
     } catch {
       setError('No pudimos cargar tu plan. Por favor, inténtalo de nuevo.')
     } finally {
       setLoading(false)
     }
-  }, [professionalId])
+  }, [professionalId, applyClaimedShiftsToPlan])
 
   // Load initial data if Firebase is not connected
   useEffect(() => {
@@ -61,10 +85,12 @@ export default function WinterPlanCalendar() {
   useEffect(() => {
     if (firebasePlan) {
       console.log('🔥 Using Firebase real-time data')
-      setPlan(firebasePlan)
+      // Apply any claimed shifts from sessionStorage
+      const planWithClaimed = applyClaimedShiftsToPlan(firebasePlan)
+      setPlan(planWithClaimed)
       setLoading(false)
     }
-  }, [firebasePlan])
+  }, [firebasePlan, applyClaimedShiftsToPlan])
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -104,9 +130,11 @@ export default function WinterPlanCalendar() {
     const shift = selectedShifts.find(s => s.id === shiftId)
     if (!shift) return
     
-    // Toggle behavior: if already claimed, unclaim it (local only, no API call)
+    // Toggle behavior: if already claimed, unclaim it
     if (shift.status === 'claimed') {
-      // Local unclaim - just update state
+      // Unclaim - update state and remove from sessionStorage
+      unclaimShift(shiftId)
+      
       const updatedShifts = selectedShifts.map(s => 
         s.id === shiftId ? { ...s, status: 'pending' as const } : s
       )
@@ -131,27 +159,53 @@ export default function WinterPlanCalendar() {
       return
     }
     
-    // Claiming a shift - make API call
-    try {
-      await claimShift(shiftId, professionalId)
-      
-      // Update local state immediately for better UX
-      // Also unclaim any other shift in the same slot
-      const updatedShifts = selectedShifts.map(s => {
-        if (s.id === shiftId) {
-          return { ...s, status: 'claimed' as const }
-        } else if (s.status === 'claimed' && s.label === shift.label) {
-          // Unclaim other shift in the same slot
-          return { ...s, status: 'pending' as const }
-        }
-        return s
-      })
-      setSelectedShifts(updatedShifts)
-      
-      // Reload plan to get fresh data
-      await loadPlan()
-    } catch {
-      alert('Error al solicitar el turno')
+    // Find if there's another claimed shift in the same slot to unclaim
+    const previousClaimedInSlot = selectedShifts.find(
+      s => s.status === 'claimed' && s.label === shift.label && s.id !== shiftId
+    )
+    
+    // Unclaim previous shift in same slot from sessionStorage
+    if (previousClaimedInSlot) {
+      unclaimShift(previousClaimedInSlot.id)
+    }
+    
+    // Claiming a shift - saves to sessionStorage
+    await claimShift(shiftId, professionalId)
+    
+    // Update local state immediately for better UX
+    // Also unclaim any other shift in the same slot
+    const updatedShifts = selectedShifts.map(s => {
+      if (s.id === shiftId) {
+        return { ...s, status: 'claimed' as const }
+      } else if (s.status === 'claimed' && s.label === shift.label) {
+        // Unclaim other shift in the same slot
+        return { ...s, status: 'pending' as const }
+      }
+      return s
+    })
+    setSelectedShifts(updatedShifts)
+    
+    // Update the plan state directly (same as unclaim does)
+    if (plan) {
+      const updatedPlan = {
+        ...plan,
+        months: plan.months.map(month => ({
+          ...month,
+          days: month.days.map(day => ({
+            ...day,
+            shifts: day.shifts.map(s => {
+              if (s.id === shiftId) {
+                return { ...s, status: 'claimed' as const }
+              } else if (s.status === 'claimed' && s.label === shift.label && day.date === selectedDate) {
+                // Unclaim other shift in the same slot on the same day
+                return { ...s, status: 'pending' as const }
+              }
+              return s
+            })
+          }))
+        }))
+      }
+      setPlan(updatedPlan)
     }
   }
 
@@ -167,25 +221,23 @@ export default function WinterPlanCalendar() {
   }
 
   const handleCompletePlan = async () => {
-    if (!plan) return
-    
     try {
       setIsSubmitting(true)
       
-      // Extract all confirmed shift IDs from all months
-      const confirmedShiftIds: string[] = []
-      plan.months.forEach(month => {
-        month.days.forEach(day => {
-          day.shifts.forEach(shift => {
-            if (shift.status === 'claimed') {
-              confirmedShiftIds.push(shift.id)
-            }
-          })
-        })
-      })
+      // Get claimed shift IDs from sessionStorage (source of truth)
+      const shiftIds = getClaimedShiftIds()
+      
+      if (shiftIds.length === 0) {
+        alert('No has seleccionado ningún turno')
+        setIsSubmitting(false)
+        return
+      }
 
-      // Send to n8n webhook
-      await sendCompletedPlan(professionalId, confirmedShiftIds)
+      // Send to n8n webhook with format: { userId, shiftIds }
+      await sendCompletedPlan(professionalId, shiftIds)
+      
+      // Clear claimed shifts after successful send
+      clearClaimedShifts()
       
       // Show success message briefly
       setShowSuccessMessage(true)
@@ -202,21 +254,8 @@ export default function WinterPlanCalendar() {
     }
   }
 
-  // Count confirmed shifts for display
-  const getConfirmedShiftsCount = () => {
-    if (!plan) return 0
-    let count = 0
-    plan.months.forEach(month => {
-      month.days.forEach(day => {
-        day.shifts.forEach(shift => {
-          if (shift.status === 'claimed') count++
-        })
-      })
-    })
-    return count
-  }
-
-  const confirmedCount = getConfirmedShiftsCount()
+  // Count confirmed shifts from sessionStorage (source of truth)
+  const confirmedCount = getClaimedShiftIds().length
 
   // Get current month data
   const getMonthKey = () => `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
@@ -324,20 +363,6 @@ export default function WinterPlanCalendar() {
         <p className="text-sm text-gray-500 text-center pb-3">
           Turnos en Diciembre y Enero
         </p>
-        {/* Real-time connection indicator */}
-        {firebaseConnected && (
-          <div className="flex items-center justify-center gap-1.5 pb-2">
-            <IconWifi size={14} className="text-green-500" />
-            <span className="text-xs text-green-600">
-              Conectado en tiempo real
-              {firebaseLastUpdate && (
-                <span className="text-gray-400 ml-1">
-                  · Actualizado {firebaseLastUpdate.toLocaleTimeString()}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
       </header>
 
       <div className="px-4">

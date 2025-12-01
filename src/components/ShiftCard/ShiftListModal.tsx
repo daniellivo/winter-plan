@@ -170,6 +170,8 @@ function ShiftBlock({
           {shifts.map((shift) => {
             const isRejected = rejectedShiftIds.has(shift.id)
             const isClaimed = shift.status === 'claimed'
+            const isConfirmed = shift.status === 'confirmed' // Pre-approved from API
+            const isSelected = isClaimed || isConfirmed
             
             return (
               <div
@@ -180,7 +182,7 @@ function ShiftBlock({
                   onClick={() => onSelect(shift.id)}
                   className={`
                     w-full p-4 rounded-xl text-left transition-colors cursor-pointer
-                    ${isClaimed 
+                    ${isSelected 
                       ? 'bg-green-50 hover:bg-green-100' 
                       : isRejected
                       ? 'bg-gray-100 hover:bg-gray-150 opacity-60'
@@ -193,42 +195,52 @@ function ShiftBlock({
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-600">
                       {shift.startTime} - {shift.endTime}
+                      {isConfirmed && <span className="ml-2 text-xs text-green-600 font-medium">Confirmado</span>}
                     </span>
                     
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => handleClaim(e, shift.id)}
-                        className={`
-                          w-8 h-8 rounded-full flex items-center justify-center transition-all
-                          ${isClaimed 
-                            ? 'bg-green-500 border-2 border-green-500' 
-                            : 'border-2 border-green-500 hover:bg-green-50'
-                          }
-                        `}
-                      >
-                        <IconCheck 
-                          size={18} 
-                          className={isClaimed ? 'text-white' : 'text-green-500'}
-                          strokeWidth={isClaimed ? 3 : 2}
-                        />
-                      </button>
-                      <button
-                        onClick={(e) => handleReject(e, shift.id)}
-                        className={`
-                          w-8 h-8 rounded-full flex items-center justify-center transition-all
-                          ${isRejected
-                            ? 'bg-red-500 border-2 border-red-500'
-                            : 'border-2 border-red-500 hover:bg-red-50'
-                          }
-                        `}
-                      >
-                        <IconX 
-                          size={18} 
-                          className={isRejected ? 'text-white' : 'text-red-500'}
-                          strokeWidth={isRejected ? 3 : 2}
-                        />
-                      </button>
-                    </div>
+                    {/* Hide action buttons for pre-confirmed shifts */}
+                    {!isConfirmed && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => handleClaim(e, shift.id)}
+                          className={`
+                            w-8 h-8 rounded-full flex items-center justify-center transition-all
+                            ${isClaimed 
+                              ? 'bg-green-500 border-2 border-green-500' 
+                              : 'border-2 border-green-500 hover:bg-green-50'
+                            }
+                          `}
+                        >
+                          <IconCheck 
+                            size={18} 
+                            className={isClaimed ? 'text-white' : 'text-green-500'}
+                            strokeWidth={isClaimed ? 3 : 2}
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => handleReject(e, shift.id)}
+                          className={`
+                            w-8 h-8 rounded-full flex items-center justify-center transition-all
+                            ${isRejected
+                              ? 'bg-red-500 border-2 border-red-500'
+                              : 'border-2 border-red-500 hover:bg-red-50'
+                            }
+                          `}
+                        >
+                          <IconX 
+                            size={18} 
+                            className={isRejected ? 'text-white' : 'text-red-500'}
+                            strokeWidth={isRejected ? 3 : 2}
+                          />
+                        </button>
+                      </div>
+                    )}
+                    {/* Show checkmark icon for confirmed shifts */}
+                    {isConfirmed && (
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center bg-green-500">
+                        <IconCheck size={18} className="text-white" strokeWidth={3} />
+                      </div>
+                    )}
                   </div>
                   
                   {/* Line 2: Facility name */}

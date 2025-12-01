@@ -51,12 +51,14 @@ export default function Calendar({ year, month, days, onDayClick }: CalendarProp
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
-  // Group shifts by type and check if any are confirmed
+  // Group shifts by type and check if any are confirmed/claimed
   const getShiftTypeGroups = (shifts: DayShifts['shifts']): ShiftTypeGroup[] => {
     const groups = new Map<string, boolean>()
     
     shifts.forEach(shift => {
-      const hasConfirmed = groups.get(shift.label) || shift.status === 'claimed'
+      // Both 'claimed' (user selected) and 'confirmed' (APPROVED/PENDING_APPROVAL from API) show as confirmed
+      const isConfirmedOrClaimed = shift.status === 'claimed' || shift.status === 'confirmed'
+      const hasConfirmed = groups.get(shift.label) || isConfirmedOrClaimed
       groups.set(shift.label, hasConfirmed)
     })
 

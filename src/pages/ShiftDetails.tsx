@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'react-router-dom'
 import { 
-  IconStar, 
   IconMapPin, 
   IconChevronRight,
   IconChevronDown,
@@ -16,7 +15,6 @@ import {
   IconSun,
   IconSunset2,
   IconMoon,
-  IconCheck,
   IconInfoCircle
 } from '@tabler/icons-react'
 import Header from '../components/Layout/Header'
@@ -57,16 +55,11 @@ export default function ShiftDetails() {
 
   const handleClaim = async () => {
     if (!shift) return
-    try {
-      setClaiming(true)
-      await claimShift(shift.id, professionalId)
-      // Navigate back to calendar
-      navigate('/calendar')
-    } catch {
-      alert('Error al solicitar el turno')
-    } finally {
-      setClaiming(false)
-    }
+    setClaiming(true)
+    await claimShift(shift.id, professionalId)
+    // Navigate back to calendar - shift is now marked as claimed locally
+    navigate('/calendar')
+    setClaiming(false)
   }
 
   const handleNotInterested = async () => {
@@ -104,28 +97,28 @@ export default function ShiftDetails() {
 
   // Get time icon and color based on shift time (TM/TT/TN)
   const getTimeIconAndColor = () => {
-    if (!shift) return { icon: <IconSun size={18} />, colorClass: 'text-gray-400' }
+    if (!shift) return { icon: <IconSun size={18} />, color: '#9CA3AF' }
     
     const hour = parseInt(shift.startTime.split(':')[0])
     
-    // TM: Morning (7:00 - 13:59) - Sun, yellow/orange
+    // TM: Morning (7:00 - 13:59)
     if (hour >= 7 && hour < 14) {
       return { 
-        icon: <IconSun size={18} />, 
-        colorClass: 'text-amber-500' 
+        icon: <IconSun size={18} style={{ color: '#FFA538' }} />, 
+        color: '#FFA538' 
       }
     }
-    // TT: Afternoon (14:00 - 20:59) - Sunset, orange
+    // TT: Afternoon (14:00 - 20:59)
     if (hour >= 14 && hour < 21) {
       return { 
-        icon: <IconSunset2 size={18} />, 
-        colorClass: 'text-orange-500' 
+        icon: <IconSunset2 size={18} style={{ color: '#FE85C6' }} />, 
+        color: '#FE85C6' 
       }
     }
-    // TN: Night (21:00 - 6:59) - Moon, dark blue
+    // TN: Night (21:00 - 6:59)
     return { 
-      icon: <IconMoon size={18} />, 
-      colorClass: 'text-indigo-600' 
+      icon: <IconMoon size={18} style={{ color: '#12A3B9' }} />, 
+      color: '#12A3B9' 
     }
   }
 
@@ -188,22 +181,31 @@ export default function ShiftDetails() {
       
       <div className="px-5 py-4">
         {/* Facility info */}
-        <div className="border-l-4 border-[#2cbeff] pl-4 mb-6">
+        <div className="mb-6">
           <h2 className="text-lg font-bold text-gray-900 mb-1">
             {shift.facility.name}
           </h2>
-          <div className="flex items-center gap-1 text-sm text-gray-600 mb-2">
-            <IconStar size={14} className="text-amber-400 fill-amber-400" />
-            <span>{shift.facility.rating}</span>
-            <span className="text-gray-400">({shift.facility.reviewsCount} valoraciones)</span>
-          </div>
-          
-          {shift.facility.allowInternalProsToCancelApprovedClaims && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 rounded-full text-xs text-gray-700">
-              <IconCheck size={12} className="text-gray-600" />
-              <span>Aprobación alta</span>
+          <div className="flex items-center gap-1.5 text-sm flex-wrap">
+            <div className="flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-green-500">
+                <path d="M12 2c5.523 0 10 4.477 10 10s-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2zm3.22 6.97-4.47 4.47-1.97-1.97a.75.75 0 0 0-1.06 1.06l2.5 2.5a.75.75 0 0 0 1.06 0l5-5a.75.75 0 1 0-1.06-1.06z"/>
+              </svg>
+              <span className="text-green-600 font-medium">{Math.round(shift.facility.rating * 20)}%</span>
             </div>
-          )}
+            <span className="text-gray-400">({shift.facility.reviewsCount} valoraciones)</span>
+            {shift.facility.allowInternalProsToCancelApprovedClaims && (
+              <>
+                <span className="text-gray-400">·</span>
+                <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded-full text-xs text-gray-600">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                  <span>Fast answer</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Shift details - Updated icons */}
@@ -221,7 +223,7 @@ export default function ShiftDetails() {
             <span className="text-sm capitalize">{formatDate(shift.date)}</span>
           </div>
           <div className="flex items-center gap-3 text-gray-700">
-            <span className={timeIconData.colorClass}>{timeIconData.icon}</span>
+            {timeIconData.icon}
             <span className="text-sm">{shift.startTime} - {shift.endTime}</span>
           </div>
         </div>
@@ -361,7 +363,7 @@ export default function ShiftDetails() {
           </SecondaryButton>
           <div className="flex-1">
             <PrimaryButton onClick={handleClaim} disabled={claiming}>
-              {claiming ? 'Solicitando...' : `Solicitar por ${shift.remuneration.total}€`}
+              {claiming ? 'Añadiendo...' : `Añadir por ${shift.remuneration.total}€`}
             </PrimaryButton>
           </div>
         </div>
