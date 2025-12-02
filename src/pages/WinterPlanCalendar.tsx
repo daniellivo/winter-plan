@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
-import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
+import { IconInfoCircle, IconCheck, IconChevronLeft } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots } from '../api/winterPlan'
+import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -31,6 +31,9 @@ export default function WinterPlanCalendar() {
   
   // Rejected slots state (array of "YYYY-MM-DD-TM" format strings)
   const [rejectedSlots, setRejectedSlots] = useState<string[]>(() => getRejectedSlots())
+  
+  // Rejected individual shift IDs
+  const [rejectedShiftIds, setRejectedShiftIds] = useState<string[]>(() => getRejectedShiftIds())
 
   // Firebase real-time listener
   const { 
@@ -94,6 +97,12 @@ export default function WinterPlanCalendar() {
       setLoading(false)
     }
   }, [firebasePlan, applyClaimedShiftsToPlan])
+  
+  // Reload rejected shift IDs from storage whenever component renders
+  // This ensures we pick up any changes made in ShiftDetails page
+  useEffect(() => {
+    setRejectedShiftIds(getRejectedShiftIds())
+  }, [plan]) // Reload when plan changes (after navigating back)
 
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
@@ -357,7 +366,13 @@ export default function WinterPlanCalendar() {
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white">
         <div className="flex items-center justify-between h-14 px-4">
-          <div className="w-10" />
+          <button 
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1 text-[#2cbeff] font-medium text-sm hover:opacity-80 transition-opacity"
+          >
+            <IconChevronLeft size={20} />
+            <span>Atrás</span>
+          </button>
           <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
             🎄 Aquí está tu Calendario 🎄
           </h1>
@@ -377,7 +392,9 @@ export default function WinterPlanCalendar() {
         {/* Intro text */}
         <div className="text-center py-4">
           <p className="text-gray-600 text-sm leading-relaxed">
-          Este invierno en Livo te preparamos un plan de turnos personalizado que encaje contigo.
+            Pulsa en los días marcados para ver y elegir tus turnos.
+            <br /><br />
+            Confirma todos tus turnos a la vez en el botón final.
           </p>
         </div>
 
@@ -410,6 +427,7 @@ export default function WinterPlanCalendar() {
           days={currentMonthData?.days || []}
           onDayClick={handleDayClick}
           rejectedSlots={rejectedSlots}
+          rejectedShiftIds={rejectedShiftIds}
         />
 
         {/* Plan completado button - fixed at bottom */}

@@ -20,7 +20,7 @@ import {
 import Header from '../components/Layout/Header'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
 import SecondaryButton from '../components/Buttons/SecondaryButton'
-import { getShiftDetails, claimShift, saveRejectedSlot } from '../api/winterPlan'
+import { getShiftDetails, claimShift, saveRejectedShift } from '../api/winterPlan'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { ShiftDetails as ShiftDetailsType } from '../types/winterPlan'
@@ -65,14 +65,8 @@ export default function ShiftDetails() {
   const handleNotInterested = () => {
     if (!shift) return
     
-    // Determine the shift label based on start time
-    const hour = parseInt(shift.startTime.split(':')[0])
-    let label = 'TM'
-    if (hour >= 14 && hour < 21) label = 'TT'
-    else if (hour >= 21 || hour < 7) label = 'TN'
-    
-    // Save as rejected locally
-    saveRejectedSlot(shift.date, label)
+    // Save this specific shift as rejected (not the entire slot)
+    saveRejectedShift(shift.id)
     
     // Navigate back to calendar
     navigate('/calendar')

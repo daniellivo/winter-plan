@@ -8,6 +8,7 @@ interface CalendarProps {
   days: DayShifts[]
   onDayClick: (date: string, shifts: DayShifts['shifts']) => void
   rejectedSlots?: string[] // Array of "YYYY-MM-DD-TM" format strings
+  rejectedShiftIds?: string[] // Array of individually rejected shift IDs
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
@@ -19,7 +20,7 @@ interface ShiftTypeGroup {
   isRejected: boolean // All shifts in this slot were rejected
 }
 
-export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [] }: CalendarProps) {
+export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [], rejectedShiftIds = [] }: CalendarProps) {
   const calendarGrid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
@@ -57,11 +58,12 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
   // Analyze shifts for a day and return display info
   const analyzeDay = (dateStr: string, shifts: DayShifts['shifts']) => {
     const groups: ShiftTypeGroup[] = []
-    const labelsMap = new Map<string, { hasConfirmed: boolean; isLocked: boolean; isRejected: boolean }>()
+    const labelsMap = new Map<string, { hasConfirmed: boolean; isLocked: boolean; isRejected: boolean; allShiftsRejected: boolean }>()
     
-    // First, check which slots have shifts
+    // First, check which slots have shifts and track individual rejections
+    const shiftsByLabel = new Map<string, typeof shifts>()
     shifts.forEach(shift => {
-      const current = labelsMap.get(shift.label) || { hasConfirmed: false, isLocked: false, isRejected: false }
+      const current = labelsMap.get(shift.label) || { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false }
       
       if (shift.status === 'confirmed') {
         // Pre-approved shift - this slot is locked
@@ -72,18 +74,35 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
       }
       
       labelsMap.set(shift.label, current)
+      
+      // Group shifts by label
+      const labelShifts = shiftsByLabel.get(shift.label) || []
+      labelShifts.push(shift)
+      shiftsByLabel.set(shift.label, labelShifts)
+    })
+    
+    // Check for individually rejected shifts within each slot
+    shiftsByLabel.forEach((slotShifts, label) => {
+      const info = labelsMap.get(label)!
+      // Count how many shifts in this slot are rejected
+      const rejectedCount = slotShifts.filter(s => rejectedShiftIds.includes(s.id)).length
+      // If ALL shifts in this slot are rejected individually, mark the slot as rejected
+      if (rejectedCount > 0 && rejectedCount === slotShifts.length && !info.hasConfirmed) {
+        info.allShiftsRejected = true
+        info.isRejected = true
+      }
     })
 
-    // Check for rejected slots from the rejectedSlots prop
+    // Check for rejected slots from the rejectedSlots prop (legacy full-slot rejection)
     const order = ['TM', 'TT', 'TN']
     order.forEach(label => {
       const rejectedKey = `${dateStr}-${label}`
-      const isRejected = rejectedSlots.includes(rejectedKey)
+      const isSlotRejected = rejectedSlots.includes(rejectedKey)
       
       if (labelsMap.has(label)) {
         const info = labelsMap.get(label)!
         // If slot is rejected and not claimed, mark as rejected
-        if (isRejected && !info.hasConfirmed) {
+        if (isSlotRejected && !info.hasConfirmed) {
           info.isRejected = true
         }
         groups.push({
@@ -92,7 +111,7 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
           isLocked: info.isLocked,
           isRejected: info.isRejected
         })
-      } else if (isRejected) {
+      } else if (isSlotRejected) {
         // Slot was rejected but no shifts currently (edge case)
         groups.push({
           label,

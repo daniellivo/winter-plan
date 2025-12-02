@@ -326,6 +326,9 @@ export function translateUnit(unitCode: string | undefined): string {
 // Storage key for rejected slots (persists across navigation)
 const REJECTED_SLOTS_KEY = 'winter_plan_rejected_slots'
 
+// Storage key for individually rejected shift IDs
+const REJECTED_SHIFTS_KEY = 'winter_plan_rejected_shifts'
+
 // ============================================
 // Rejected Slots Persistence Functions
 // ============================================
@@ -388,6 +391,64 @@ export function isSlotRejected(date: string, label: string): boolean {
 export function clearRejectedSlots(): void {
   sessionStorage.removeItem(REJECTED_SLOTS_KEY)
   console.log('🗑️ Cleared all rejected slots')
+}
+
+// ============================================
+// Individual Rejected Shifts Persistence Functions
+// ============================================
+
+/**
+ * Save a shift as individually rejected in sessionStorage
+ * @param shiftId - Shift ID to reject
+ */
+export function saveRejectedShift(shiftId: string): void {
+  const rejected = getRejectedShiftIds()
+  if (!rejected.includes(shiftId)) {
+    rejected.push(shiftId)
+    sessionStorage.setItem(REJECTED_SHIFTS_KEY, JSON.stringify(rejected))
+    console.log('❌ Saved rejected shift:', shiftId, 'Total:', rejected.length)
+  }
+}
+
+/**
+ * Remove a shift from individually rejected in sessionStorage
+ * @param shiftId - Shift ID to unreject
+ */
+export function removeRejectedShift(shiftId: string): void {
+  const rejected = getRejectedShiftIds()
+  const filtered = rejected.filter(id => id !== shiftId)
+  sessionStorage.setItem(REJECTED_SHIFTS_KEY, JSON.stringify(filtered))
+  console.log('🔄 Removed rejected shift:', shiftId, 'Total:', filtered.length)
+}
+
+/**
+ * Get all individually rejected shift IDs from sessionStorage
+ * @returns Array of shift IDs
+ */
+export function getRejectedShiftIds(): string[] {
+  try {
+    const stored = sessionStorage.getItem(REJECTED_SHIFTS_KEY)
+    if (!stored) return []
+    return JSON.parse(stored)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Check if a specific shift is individually rejected
+ * @param shiftId - Shift ID to check
+ */
+export function isShiftRejected(shiftId: string): boolean {
+  return getRejectedShiftIds().includes(shiftId)
+}
+
+/**
+ * Clear all individually rejected shifts from sessionStorage
+ */
+export function clearRejectedShifts(): void {
+  sessionStorage.removeItem(REJECTED_SHIFTS_KEY)
+  console.log('🗑️ Cleared all rejected shifts')
 }
 
 // ============================================

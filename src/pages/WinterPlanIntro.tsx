@@ -36,9 +36,7 @@ export default function WinterPlanIntro() {
         {/* Intro text */}
         <div className="text-center py-6">
           <p className="text-gray-600 text-sm leading-relaxed">
-            Este invierno en Livo trabajamos para ti.
-            <br />
-            Te planificamos los turnos según tus preferencias.
+            Este invierno en Livo te preparamos un plan de turnos personalizado que encaje contigo.
           </p>
         </div>
 
@@ -51,7 +49,7 @@ export default function WinterPlanIntro() {
           
           <div className="text-center">
             <h3 className="font-bold text-gray-900 mb-1">2. Te preparamos tu plan</h3>
-            <p className="text-sm text-gray-600">Te enviamos una propuesta de turnos.</p>
+            <p className="text-sm text-gray-600">Visualiza tu propuesta de turnos.</p>
           </div>
           
           <div className="text-center">
@@ -76,7 +74,7 @@ export default function WinterPlanIntro() {
             onClick={() => navigate('/calendar')}
             className="w-full py-3 px-6 text-[#2cbeff] font-semibold text-base border-2 border-[#2cbeff] rounded-full hover:bg-[#2cbeff]/5 transition-colors"
           >
-            Ver mi calendario 📅
+            Ver mi calendario 🗓️
           </button>
         </div>
 
@@ -112,7 +110,7 @@ export default function WinterPlanIntro() {
               <div className="bg-gray-100 rounded-xl p-6 text-center shadow-sm">
                 <h4 className="font-semibold text-gray-800 mb-2">Tus turnos de Invierno</h4>
                 <p className="text-[#2cbeff] font-semibold text-sm">
-                  Ver mi calendario 📅
+                  Ver mi calendario 🗓️
                 </p>
               </div>
             </div>
