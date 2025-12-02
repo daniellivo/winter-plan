@@ -64,7 +64,7 @@ export default function WinterPlanIntro() {
         {/* Primary CTA */}
         <div className="mb-4">
           <PrimaryButton onClick={handlePreparePlan}>
-            Marca mi Disponibilidad
+            Marcar mi Disponibilidad
           </PrimaryButton>
         </div>
 
@@ -119,7 +119,7 @@ export default function WinterPlanIntro() {
 
         {/* Bottom CTA */}
         <PrimaryButton onClick={handlePreparePlan}>
-          Marca mi Disponibilidad
+          Marcar mi Disponibilidad
         </PrimaryButton>
       </div>
     </div>
