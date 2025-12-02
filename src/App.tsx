@@ -63,7 +63,8 @@ function App() {
   const hasRedirectedRef = useRef(false)
   
   // Read params from URL or sessionStorage (fallback)
-  let professionalId = searchParams.get('professionalId') || ''
+  // Support both ENCODED_PROFESSIONAL_ID (new format) and professionalId (legacy)
+  let professionalId = searchParams.get('ENCODED_PROFESSIONAL_ID') || searchParams.get('professionalId') || ''
   let token = searchParams.get('token')
   const entry = searchParams.get('entry')
 
@@ -89,7 +90,7 @@ function App() {
     if (!professionalId || hasRedirectedRef.current) return
     if (entry === 'calendar' && location.pathname === '/') {
       hasRedirectedRef.current = true
-      const queryString = professionalId ? `?professionalId=${professionalId}${token ? `&token=${token}` : ''}` : ''
+      const queryString = professionalId ? `?ENCODED_PROFESSIONAL_ID=${professionalId}${token ? `&token=${token}` : ''}` : ''
       navigate(`/calendar${queryString}`, { replace: true })
     }
   }, [entry, professionalId, token, location.pathname, navigate])
