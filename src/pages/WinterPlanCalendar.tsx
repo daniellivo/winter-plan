@@ -3,7 +3,7 @@ import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, unclaimShift, sendCompletedPlan, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots } from '../api/winterPlan'
+import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -228,16 +228,21 @@ export default function WinterPlanCalendar() {
       setIsSubmitting(true)
       
       // Get claimed shift IDs from sessionStorage (source of truth)
-      const shiftIds = getClaimedShiftIds()
+      const shiftIdStrings = getClaimedShiftIds()
       
-      if (shiftIds.length === 0) {
+      if (shiftIdStrings.length === 0) {
         alert('No has seleccionado ningún turno')
         setIsSubmitting(false)
         return
       }
 
-      // Send to n8n webhook with format: { userId, shiftIds }
-      await sendCompletedPlan(professionalId, shiftIds)
+      // Convert shift IDs to numbers for the API
+      const shiftIds = shiftIdStrings.map(id => parseInt(id, 10)).filter(id => !isNaN(id))
+      
+      // Call the shifts-claim API endpoint
+      const response = await claimShiftsToApi(professionalId, shiftIds)
+      
+      console.log('📥 Claim response:', response)
       
       // Clear claimed shifts after successful send
       clearClaimedShifts()
