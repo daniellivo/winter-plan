@@ -251,10 +251,13 @@ function ShiftBlock({
                     {shift.facilityName}
                   </p>
                   
-                  {/* Line 3: Unit/field and price - pushed to bottom */}
+                  {/* Line 3: Unit (and field if exists) and price - pushed to bottom */}
                   <div className="flex items-center justify-between mt-auto">
                     <p className="text-xs text-gray-500 truncate flex-1 mr-2">
-                      {[shift.unit, shift.field].filter(Boolean).join(' · ') || '\u00A0'}
+                      {shift.field 
+                        ? `${shift.unit} · ${shift.field}` 
+                        : (shift.unit || '\u00A0')
+                      }
                     </p>
                     
                     {shift.price ? (

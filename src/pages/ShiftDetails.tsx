@@ -210,14 +210,18 @@ export default function ShiftDetails() {
 
         {/* Shift details - Updated icons */}
         <div className="space-y-3 mb-6">
-          <div className="flex items-center gap-3 text-gray-700">
-            <IconHeart size={18} className="text-gray-400" />
-            <span className="text-sm">{shift.unit}</span>
-          </div>
-          <div className="flex items-center gap-3 text-gray-700">
-            <IconHeartbeat size={18} className="text-gray-400" />
-            <span className="text-sm">{shift.field}</span>
-          </div>
+          {shift.unit && (
+            <div className="flex items-center gap-3 text-gray-700">
+              <IconHeart size={18} className="text-gray-400" />
+              <span className="text-sm">{shift.unit}</span>
+            </div>
+          )}
+          {shift.field && (
+            <div className="flex items-center gap-3 text-gray-700">
+              <IconHeartbeat size={18} className="text-gray-400" />
+              <span className="text-sm">{shift.field}</span>
+            </div>
+          )}
           <div className="flex items-center gap-3 text-gray-700">
             <IconCalendarEvent size={18} className="text-gray-400" />
             <span className="text-sm capitalize">{formatDate(shift.date)}</span>
