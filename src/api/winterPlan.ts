@@ -1,6 +1,6 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db, isFirebaseConfigured } from '../config/firebase'
-import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../types/winterPlan'
+import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift, AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate } from '../types/winterPlan'
 
 // ⚠️ TODO: Reemplazar con la URL real de tu API
 // Ejemplo: 'https://livomarketing.app.n8n.cloud/webhook/tu-endpoint'
@@ -703,6 +703,166 @@ function transformAvailabilityToWinterPlan(
 // Fixed date range for Winter Plan (Dec 2025 - Jan 2026)
 const WINTER_PLAN_START_DATE = '2025-12-01'
 const WINTER_PLAN_END_DATE = '2026-01-31'
+
+/**
+ * Fetch available shifts from the API
+ * GET /professional/winter-plan/available-shifts
+ * 
+ * @param userId - Encoded professional ID from URL (required)
+ * @returns AvailableShiftsResponse with shiftsByDate array
+ */
+export async function fetchAvailableShifts(userId: string): Promise<AvailableShiftsResponse> {
+  const params = new URLSearchParams({ userId })
+  const url = `${AVAILABILITY_API_BASE_URL}/professional/winter-plan/available-shifts?${params}`
+  
+  console.log('🌐 Fetching available shifts from:', url)
+  console.log('📋 Using userId (encodedId):', userId)
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details')
+      console.error('❌ API Error:', response.status, response.statusText, errorText)
+      throw new Error(`Failed to fetch available shifts: ${response.status} ${response.statusText}`)
+    }
+    
+    const data: AvailableShiftsResponse = await response.json()
+    
+    console.log('📥 Available shifts API response:', {
+      totalDates: data.shiftsByDate?.length || 0,
+      totalShifts: data.shiftsByDate?.reduce((acc, d) => acc + (d.shifts?.length || 0), 0) || 0
+    })
+    
+    // Store raw data in sessionStorage for potential future use
+    sessionStorage.setItem('available_shifts_api_data', JSON.stringify(data))
+    
+    return data
+  } catch (error) {
+    console.error('❌ Fetch available shifts error:', error)
+    throw error
+  }
+}
+
+/**
+ * Transform available shifts to WinterPlan format for calendar display
+ * @param data - Available shifts response from API
+ * @param professionalId - User ID for WinterPlan
+ */
+export function transformAvailableShiftsToWinterPlan(
+  data: AvailableShiftsResponse,
+  professionalId: string
+): WinterPlan {
+  const monthsMap = new Map<string, Map<string, Shift[]>>()
+  
+  data.shiftsByDate.forEach(({ date, shifts }) => {
+    if (!shifts || shifts.length === 0) return
+    
+    const month = date.substring(0, 7) // YYYY-MM
+    
+    if (!monthsMap.has(month)) {
+      monthsMap.set(month, new Map())
+    }
+    
+    const daysMap = monthsMap.get(month)!
+    if (!daysMap.has(date)) {
+      daysMap.set(date, [])
+    }
+    
+    const dayShifts = daysMap.get(date)!
+    
+    shifts.forEach(shift => {
+      // Determine shift label based on shiftTimeInDay
+      let label = 'TM'
+      if (shift.shiftTimeInDay) {
+        switch (shift.shiftTimeInDay) {
+          case 'MORNING_SHIFT':
+          case 'DAY_SHIFT':
+            label = 'TM'
+            break
+          case 'AFTERNOON_SHIFT':
+          case 'EVENING_SHIFT':
+            label = 'TT'
+            break
+          case 'NIGHT_SHIFT':
+            label = 'TN'
+            break
+        }
+      } else if (shift.localStartTime) {
+        // Fallback: determine from start time
+        const hour = parseInt(shift.localStartTime.split(':')[0])
+        if (hour >= 7 && hour < 14) label = 'TM'
+        else if (hour >= 14 && hour < 21) label = 'TT'
+        else label = 'TN'
+      }
+      
+      // Determine status
+      let status: Shift['status'] = 'pending'
+      if (shift.status) {
+        switch (shift.status) {
+          case 'APPROVED':
+          case 'PENDING_APPROVAL':
+            status = 'confirmed'
+            break
+          case 'CLAIMED':
+            status = 'claimed'
+            break
+          case 'REJECTED':
+            status = 'rejected'
+            break
+          default:
+            status = 'pending'
+        }
+      }
+      
+      dayShifts.push({
+        id: String(shift.id),
+        label,
+        startTime: shift.localStartTime || '',
+        endTime: shift.localFinishTime || '',
+        facilityName: shift.facility.name,
+        unit: shift.unit || shift.livoUnit || shift.specialization?.displayText || '',
+        field: shift.professionalField || shift.specialization?.name || '',
+        status,
+        price: shift.shiftTotalPay || 0
+      })
+    })
+  })
+  
+  // Convert maps to arrays and sort
+  const months = Array.from(monthsMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, daysMap]) => ({
+      month,
+      days: Array.from(daysMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, shifts]) => ({
+          date,
+          shifts: shifts
+            .filter(s => s.status !== 'rejected')
+            .sort((a, b) => {
+              const order = { 'TM': 0, 'TT': 1, 'TN': 2 }
+              return (order[a.label as keyof typeof order] || 0) - (order[b.label as keyof typeof order] || 0)
+            })
+        }))
+        .filter(day => day.shifts.length > 0)
+    }))
+  
+  return {
+    professionalId,
+    status: 'ready',
+    generatedAt: new Date().toISOString(),
+    months
+  }
+}
+
+// Re-export types for use in components
+export type { AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate }
 
 /**
  * Fetch availability from the new API

@@ -6,6 +6,7 @@ import WinterPlanInfo from './pages/WinterPlanInfo'
 import ShiftDetails from './pages/ShiftDetails'
 import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
+import AvailableShifts from './pages/AvailableShifts'
 
 // Webhook URL for tracking sessions (session_start event)
 // ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
@@ -122,6 +123,7 @@ function App() {
         <Route path="/cancellation-policy/:policyId" element={<CancellationPolicy />} />
         <Route path="/cancellation-policy" element={<CancellationPolicy />} />
         <Route path="/receive-data" element={<ShiftsDataReceiver />} />
+        <Route path="/available-shifts" element={<AvailableShifts />} />
       </Routes>
     </AppContext.Provider>
   )
