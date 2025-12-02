@@ -1,6 +1,6 @@
 import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { db, isFirebaseConfigured } from '../config/firebase'
-import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift, AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate } from '../types/winterPlan'
+import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift, AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate, ShiftsClaimResponse } from '../types/winterPlan'
 
 // ⚠️ TODO: Reemplazar con la URL real de tu API
 // Ejemplo: 'https://livomarketing.app.n8n.cloud/webhook/tu-endpoint'
@@ -1091,7 +1091,7 @@ export function transformAvailableShiftsToWinterPlan(
 }
 
 // Re-export types for use in components
-export type { AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate }
+export type { AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate, ShiftsClaimResponse }
 
 /**
  * Fetch availability from the new API
@@ -1567,6 +1567,59 @@ export async function sendCompletedPlan(
     return { status: 'success' }
   } catch (error) {
     console.error('❌ Failed to send completed plan:', error)
+    throw error
+  }
+}
+
+/**
+ * Claim shifts via the API
+ * POST /professional/winter-plan/shifts-claim
+ * 
+ * @param userId - Encoded user ID (ENCODED_USER_ID from URL)
+ * @param shiftIds - Array of shift IDs to claim (as numbers)
+ * @returns ShiftsClaimResponse with displayModal
+ */
+export async function claimShiftsToApi(
+  userId: string,
+  shiftIds: number[]
+): Promise<ShiftsClaimResponse> {
+  const params = new URLSearchParams({ claimSource: 'winter-plan' })
+  const url = `${AVAILABILITY_API_BASE_URL}/professional/winter-plan/shifts-claim?${params}`
+  
+  const payload = {
+    userId,
+    shiftIds
+  }
+
+  console.log('📤 Claiming shifts via API:', url)
+  console.log('📋 Payload:', payload)
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details')
+      console.error('❌ API Error:', response.status, response.statusText, errorText)
+      throw new Error(`Failed to claim shifts: ${response.status} ${response.statusText}`)
+    }
+
+    const data: ShiftsClaimResponse = await response.json()
+    
+    console.log('✅ Shifts claimed successfully:', {
+      hasModal: !!data.displayModal,
+      modalId: data.displayModal?.modalId
+    })
+
+    return data
+  } catch (error) {
+    console.error('❌ Failed to claim shifts:', error)
     throw error
   }
 }

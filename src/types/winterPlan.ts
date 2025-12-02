@@ -234,3 +234,55 @@ export interface AvailableShiftsByDate {
 export interface AvailableShiftsResponse {
   shiftsByDate: AvailableShiftsByDate[]
 }
+
+// ============================================
+// Shifts Claim API Types
+// ============================================
+
+export interface AnalyticEvent {
+  name: string
+  properties?: Record<string, string>
+}
+
+export interface ButtonAction {
+  onSuccess?: string
+  type?: 'API_CALL' | 'NAVIGATION' | 'DISMISS'
+  data?: string
+}
+
+export interface ModalButton {
+  title?: string
+  color?: string
+  backgroundColor?: string
+  borderColor?: string
+  target?: string
+  analyticEvent?: AnalyticEvent
+  icon?: string
+  iconSize?: string
+  padding?: string
+  variant?: 'DEFAULT' | 'PRIMARY' | 'SECONDARY' | 'OUTLINE'
+  action?: ButtonAction
+  enabled?: boolean
+  endpoint?: string
+}
+
+export interface ModalBanner {
+  title?: LabelDefinition
+  description?: LabelDefinition
+  backgroundColor?: string
+  button?: ModalButton
+  titleButton?: ModalButton
+}
+
+export interface DisplayModal {
+  modalId?: string
+  icon?: IconDefinition
+  title?: LabelDefinition
+  description?: LabelDefinition
+  buttons?: ModalButton[]
+  banner?: ModalBanner
+}
+
+export interface ShiftsClaimResponse {
+  displayModal?: DisplayModal
+}
