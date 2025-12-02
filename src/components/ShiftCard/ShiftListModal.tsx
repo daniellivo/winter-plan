@@ -184,7 +184,7 @@ function ShiftBlock({
                 <div
                   onClick={() => onSelect(shift.id)}
                   className={`
-                    w-full p-4 rounded-xl text-left transition-colors cursor-pointer
+                    w-full h-[120px] p-4 rounded-xl text-left transition-colors cursor-pointer flex flex-col
                     ${isSelected 
                       ? 'bg-green-50 hover:bg-green-100' 
                       : isRejected
@@ -193,7 +193,7 @@ function ShiftBlock({
                     }
                   `}
                 >
-                <div>
+                <div className="flex flex-col h-full">
                   {/* Line 1: Time and Action buttons */}
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-600">
@@ -246,24 +246,22 @@ function ShiftBlock({
                     )}
                   </div>
                   
-                  {/* Line 2: Facility name */}
-                  <p className="text-sm font-medium text-gray-900 mb-1">
+                  {/* Line 2: Facility name - truncated to 1 line */}
+                  <p className="text-sm font-medium text-gray-900 mb-1 truncate">
                     {shift.facilityName}
                   </p>
                   
-                  {/* Line 3: Unit/field and price */}
-                  <div className="flex items-center justify-between">
-                    {(shift.unit || shift.field) && (
-                      <p className="text-xs text-gray-500">
-                        {[shift.unit, shift.field].filter(Boolean).join(' · ')}
-                      </p>
-                    )}
+                  {/* Line 3: Unit/field and price - pushed to bottom */}
+                  <div className="flex items-center justify-between mt-auto">
+                    <p className="text-xs text-gray-500 truncate flex-1 mr-2">
+                      {[shift.unit, shift.field].filter(Boolean).join(' · ') || '\u00A0'}
+                    </p>
                     
-                    {shift.price && (
-                      <span className="text-sm font-semibold text-green-600">
+                    {shift.price ? (
+                      <span className="text-sm font-semibold text-green-600 flex-shrink-0">
                         {shift.price}€
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>

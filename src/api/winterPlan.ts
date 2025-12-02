@@ -101,6 +101,117 @@ const AVAILABLE_SHIFTS_STORAGE_KEY = 'winter_plan_available_shifts_data'
 // Storage key for claimed shifts (persists across navigation)
 const CLAIMED_SHIFTS_KEY = 'winter_plan_claimed_shifts'
 
+// ============================================
+// Translation Maps for Units and Fields
+// ============================================
+
+const FIELDS_TRANSLATION: Record<string, string> = {
+  'ALLERGOLOGY': 'Alergología',
+  'TRAVEL_HEALTH': 'Atención al viajero',
+  'HOME_CARE': 'Atención domiciliaria',
+  'CARDIOLOGY': 'Cardiología',
+  'ELECTROPHYSIOLOGY': 'Electrofisiologia',
+  'GENERAL_SURGERY': 'Cirugía general',
+  'VASCULAR_SURGERY': 'Cirugía vascular',
+  'MEDICAL_EVENT_COVERAGE': 'Cobertura de eventos',
+  'WOUND_CARE': 'Curas',
+  'EXTRACTIONS': 'Extracciones',
+  'INTRAVENOUS_THERAPY_TEAM': 'Equipo de terapia intravenosa',
+  'DERMATOLOGY': 'Dermatología',
+  'GASTROENTEROLOGY': 'Digestivo',
+  'PEOPLE_WITH_DISABILITIES': 'Diversidad funcional',
+  'MEDICAL_EDUCATION': 'Docencia',
+  'ENDOCRINOLOGY_AND_NUTRITION': 'Endocrinología',
+  'GERIATRICS': 'Geriatría',
+  'INFECTIOUS_DISEASES': 'Infecciosas',
+  'MIDWIVES': 'Matronas',
+  'MAXILLOFACIAL': 'Maxilofacial',
+  'AESTHETIC_MEDICINE': 'Medicina estética',
+  'INTERNAL_MEDICINE': 'Medicina Interna',
+  'NEPHROLOGY_AND_UROLOGY': 'Nefrología y Urología',
+  'NEONATOLOGY': 'Neonatos',
+  'PULMONOLOGY': 'Neumología',
+  'NEUROSURGERY': 'Neurocirugía',
+  'NEUROLOGY': 'Neurología',
+  'OBSTETRICS_AND_GYNECOLOGY': 'Ginecología',
+  'DENTISTRY': 'Odontología',
+  'OPHTHALMOLOGY': 'Oftalmología',
+  'ONCOLOGY_AND_HEMATOLOGY': 'Oncohematología',
+  'BLOOD_BANK': 'Banco de sangre',
+  'OSTOMIES': 'Ostomías',
+  'OTOLARYNGOLOGY': 'Otorrinolaringología',
+  'PALLIATIVE_CARE': 'Paliativos',
+  'PADES': 'PADES',
+  'PEDIATRICS': 'Pediatría',
+  'VERSATILE': 'Polivalente',
+  'REHABILITATION': 'Rehabilitación',
+  'FERTILITY': 'Reproducción asistida',
+  'RHEUMATOLOGY': 'Reumatología',
+  'MEDICAL_CHECK_UPS': 'Revisiones médicas',
+  'MENTAL_HEALTH_ADDICTIONS': 'S. Mental adicciones',
+  'ADULT_MENTAL_HEALTH': 'S. Mental adultos',
+  'CHILD_MENTAL_HEALTH': 'S. Mental infantil',
+  'MENTAL_HEALTH_PSYCHOGERIATRICS': 'S. Mental psicogeriatría',
+  'MENTAL_HEALTH_TCA': 'S. Mental TCA',
+  'SUPERVISION': 'Supervisión',
+  'MEDICAL_TRANSFERS': 'Traslados sanitarios',
+  'TRAUMATOLOGY': 'Traumatología',
+  'MATERNAL_AND_CHILD': 'Materno-Infantil'
+}
+
+const UNITS_TRANSLATION: Record<string, string> = {
+  'MEDICAL_HOSPITALIZATION': 'Hospitalización médica',
+  'SURGICAL_HOSPITALIZATION': 'Hospitalización quirúrgica',
+  'MEDICAL_SURGICAL_HOSPITALIZATION': 'Hospitalización medico-quirúrgica',
+  'EMERGENCY': 'Urgencias',
+  'INTENSIVE_CARE_UNIT': 'UCI',
+  'INTERMEDIATE_CARE_UNIT': 'Semicríticos',
+  'HEMODIALYSIS': 'Hemodiálisis',
+  'DELIVERY_ROOM': 'Sala de partos',
+  'ENDOSCOPY': 'Endoscopias',
+  'URODYNAMICS_ROOM': 'Sala de Urodinamia',
+  'OPERATING_ROOM_ANESTHESIA': 'Quirófano - Anestesia',
+  'OPERATING_ROOM_INSTRUMENTALIST': 'Quirófano - Instrumentista',
+  'OPERATING_ROOM_CIRCULATING': 'Quirófano - Circulante',
+  'OPERATING_ROOM_STERILIZATION': 'Quirófano - Esterilización',
+  'OPERATING_ROOM_PERFUSIONIST': 'Quirófano - Perfusionista',
+  'OPERATING_ROOM_REA': 'Quirófano - REA/URPA',
+  'SHORT_STAY_UNIT': 'Unidad de corta estancia',
+  'MAJOR_AMBULATORY_SURGERY_UNIT': 'Unidad de cirugía ambulatoria',
+  'RADIOLOGY': 'Radiología diagnóstica',
+  'INTERVENTIONAL_RADIOLOGY': 'Radiología intervencionista',
+  'HEMODYNAMICS_ROOM': 'Sala de hemodinámica',
+  'HOME_HOSPITALIZATION': 'Hospitalización a domicilio',
+  'DAY_CARE_HOSPITAL': 'Hospital de día',
+  'CONVALESCENCE': 'Convalecencia',
+  'OUTPATIENT_CLINICS': 'Consultas externas',
+  'EXTRACTIONS': 'Extracciones',
+  'LABORATORY': 'Laboratorio',
+  'OUTPATIENT_SURGERY_UNIT': 'UCMA/UCSI'
+}
+
+/**
+ * Translate a field code to Spanish display text
+ */
+export function translateField(fieldCode: string | undefined): string {
+  if (!fieldCode) return ''
+  // First check if it's already a display text (not a code)
+  if (Object.values(FIELDS_TRANSLATION).includes(fieldCode)) return fieldCode
+  // Try to translate the code
+  return FIELDS_TRANSLATION[fieldCode] || fieldCode
+}
+
+/**
+ * Translate a unit code to Spanish display text
+ */
+export function translateUnit(unitCode: string | undefined): string {
+  if (!unitCode) return ''
+  // First check if it's already a display text (not a code)
+  if (Object.values(UNITS_TRANSLATION).includes(unitCode)) return unitCode
+  // Try to translate the code
+  return UNITS_TRANSLATION[unitCode] || unitCode
+}
+
 // Storage key for rejected slots (persists across navigation)
 const REJECTED_SLOTS_KEY = 'winter_plan_rejected_slots'
 
@@ -823,14 +934,18 @@ export function transformAvailableShiftsToWinterPlan(
         }
       }
       
+      // Get raw values and translate them
+      const rawUnit = shift.unit || shift.livoUnit || shift.specialization?.displayText || ''
+      const rawField = shift.professionalField || shift.specialization?.name || ''
+      
       dayShifts.push({
         id: String(shift.id),
         label,
         startTime: shift.localStartTime || '',
         endTime: shift.localFinishTime || '',
         facilityName: shift.facility.name,
-        unit: shift.unit || shift.livoUnit || shift.specialization?.displayText || '',
-        field: shift.professionalField || shift.specialization?.name || '',
+        unit: translateUnit(rawUnit),
+        field: translateField(rawField),
         status,
         price: shift.shiftTotalPay || 0
       })
@@ -1032,6 +1147,10 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
           })
         }
         
+        // Get raw values and translate them
+        const rawUnit = found.unit || found.livoUnit || found.specialization?.displayText || ''
+        const rawField = found.professionalField || found.specialization?.name || ''
+        
         // Transform AvailableShift to ShiftDetails format
         return {
           id: String(found.id),
@@ -1053,8 +1172,8 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
               banner: found.facility.banner
             }
           },
-          unit: found.unit || found.livoUnit || found.specialization?.displayText || '',
-          field: found.professionalField || found.specialization?.name || '',
+          unit: translateUnit(rawUnit),
+          field: translateField(rawField),
           date: dayData.date,
           startTime: found.localStartTime,
           endTime: found.localFinishTime,
@@ -1088,6 +1207,11 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
         const found = dayData.shifts.find(s => String(s.id) === shiftId)
         if (found) {
           console.log('📦 Using stored n8n shift details for:', shiftId)
+          
+          // Get raw values and translate them
+          const rawUnitN8n = found.unit || found.specialization?.displayText || ''
+          const rawFieldN8n = found.specialization?.displayText || ''
+          
           // Transform n8n shift to ShiftDetails format
           return {
             id: String(found.id),
@@ -1104,8 +1228,8 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
               generalInfoDocumentUrl: found.facility.generalInfoDocumentUrl,
               allowInternalProsToCancelApprovedClaims: found.facility.allowInternalProsToCancelApprovedClaims
             },
-            unit: found.unit || found.specialization?.displayText || '',
-            field: found.specialization?.displayText || '',
+            unit: translateUnit(rawUnitN8n),
+            field: translateField(rawFieldN8n),
             date: dayData.date,
             startTime: found.localStartTime,
             endTime: found.localFinishTime,
