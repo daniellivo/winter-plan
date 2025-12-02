@@ -7,8 +7,39 @@ import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../typ
 // o 'https://api.livo.app/v1'
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app/winter-plan'
 
+// New availability API base URL
+const AVAILABILITY_API_BASE_URL = 'https://devapi.getlivo.com'
+
 // Proxy server URL for local development with HTTP POST
 const PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
+
+// ============================================
+// New Availability API Types
+// ============================================
+
+interface AvailabilitySlot {
+  date: string // "2025-12-01"
+  day: boolean
+  evening: boolean
+  night: boolean
+}
+
+interface ShiftClaim {
+  claimId: string
+  shiftId: string
+  livoUnit: string
+  livoField: string
+  totalPay: number
+  startTimeUtc: string // "2025-12-01T19:04:43.785Z"
+  endTimeUtc: string
+  shiftTimeInDay: string // "MORNING_SHIFT", "AFTERNOON_SHIFT", "NIGHT_SHIFT"
+  status: string
+}
+
+interface AvailabilityApiResponse {
+  availability: AvailabilitySlot[]
+  shiftClaims: ShiftClaim[]
+}
 
 // API response type - wraps shiftDetails
 interface ShiftDetailsResponse {
@@ -66,6 +97,73 @@ const SHIFTS_STORAGE_KEY = 'winter_plan_shifts_data'
 
 // Storage key for claimed shifts (persists across navigation)
 const CLAIMED_SHIFTS_KEY = 'winter_plan_claimed_shifts'
+
+// Storage key for rejected slots (persists across navigation)
+const REJECTED_SLOTS_KEY = 'winter_plan_rejected_slots'
+
+// ============================================
+// Rejected Slots Persistence Functions
+// ============================================
+
+/**
+ * Save a slot as rejected in sessionStorage
+ * @param date - Date string (YYYY-MM-DD)
+ * @param label - Slot label (TM, TT, TN)
+ */
+export function saveRejectedSlot(date: string, label: string): void {
+  const rejected = getRejectedSlots()
+  const key = `${date}-${label}`
+  if (!rejected.includes(key)) {
+    rejected.push(key)
+    sessionStorage.setItem(REJECTED_SLOTS_KEY, JSON.stringify(rejected))
+    console.log('❌ Saved rejected slot:', key, 'Total:', rejected.length)
+  }
+}
+
+/**
+ * Remove a slot from rejected in sessionStorage
+ * @param date - Date string (YYYY-MM-DD)
+ * @param label - Slot label (TM, TT, TN)
+ */
+export function removeRejectedSlot(date: string, label: string): void {
+  const rejected = getRejectedSlots()
+  const key = `${date}-${label}`
+  const filtered = rejected.filter(k => k !== key)
+  sessionStorage.setItem(REJECTED_SLOTS_KEY, JSON.stringify(filtered))
+  console.log('🔄 Removed rejected slot:', key, 'Total:', filtered.length)
+}
+
+/**
+ * Get all rejected slot keys from sessionStorage
+ * @returns Array of keys in format "YYYY-MM-DD-TM"
+ */
+export function getRejectedSlots(): string[] {
+  try {
+    const stored = sessionStorage.getItem(REJECTED_SLOTS_KEY)
+    if (!stored) return []
+    return JSON.parse(stored)
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Check if a specific slot is rejected
+ * @param date - Date string (YYYY-MM-DD)
+ * @param label - Slot label (TM, TT, TN)
+ */
+export function isSlotRejected(date: string, label: string): boolean {
+  const key = `${date}-${label}`
+  return getRejectedSlots().includes(key)
+}
+
+/**
+ * Clear all rejected slots from sessionStorage
+ */
+export function clearRejectedSlots(): void {
+  sessionStorage.removeItem(REJECTED_SLOTS_KEY)
+  console.log('🗑️ Cleared all rejected slots')
+}
 
 // ============================================
 // Claimed Shifts Persistence Functions
@@ -425,6 +523,231 @@ function isN8nFormat(data: unknown): data is N8nData {
   )
 }
 
+// ============================================
+// New Availability API Functions
+// ============================================
+
+/**
+ * Map shiftTimeInDay to label
+ */
+function mapTimeInDayToLabel(timeInDay: string): string {
+  switch (timeInDay.toUpperCase()) {
+    case 'MORNING_SHIFT': return 'TM'
+    case 'AFTERNOON_SHIFT': return 'TT'
+    case 'NIGHT_SHIFT': return 'TN'
+    default: return 'TM'
+  }
+}
+
+/**
+ * Extract time from UTC date string (returns HH:MM in local time)
+ */
+function extractTimeFromUtc(utcString: string): string {
+  const date = new Date(utcString)
+  return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false })
+}
+
+/**
+ * Extract date from UTC date string (returns YYYY-MM-DD)
+ */
+function extractDateFromUtc(utcString: string): string {
+  const date = new Date(utcString)
+  return date.toISOString().split('T')[0]
+}
+
+/**
+ * Transform availability API response to WinterPlan format
+ */
+function transformAvailabilityToWinterPlan(
+  data: AvailabilityApiResponse,
+  professionalId: string
+): WinterPlan {
+  const monthsMap = new Map<string, Map<string, Shift[]>>()
+  
+  // Process availability slots - create placeholder shifts for available slots
+  data.availability.forEach(slot => {
+    const month = slot.date.substring(0, 7) // YYYY-MM
+    
+    if (!monthsMap.has(month)) {
+      monthsMap.set(month, new Map())
+    }
+    
+    const daysMap = monthsMap.get(month)!
+    if (!daysMap.has(slot.date)) {
+      daysMap.set(slot.date, [])
+    }
+    
+    const shifts = daysMap.get(slot.date)!
+    
+    // Add available slots as pending shifts
+    if (slot.day) {
+      shifts.push({
+        id: `avail_${slot.date}_TM`,
+        label: 'TM',
+        startTime: '07:00',
+        endTime: '14:00',
+        facilityName: 'Disponible',
+        unit: '',
+        field: '',
+        status: 'pending',
+        price: 0
+      })
+    }
+    
+    if (slot.evening) {
+      shifts.push({
+        id: `avail_${slot.date}_TT`,
+        label: 'TT',
+        startTime: '14:00',
+        endTime: '21:00',
+        facilityName: 'Disponible',
+        unit: '',
+        field: '',
+        status: 'pending',
+        price: 0
+      })
+    }
+    
+    if (slot.night) {
+      shifts.push({
+        id: `avail_${slot.date}_TN`,
+        label: 'TN',
+        startTime: '21:00',
+        endTime: '07:00',
+        facilityName: 'Disponible',
+        unit: '',
+        field: '',
+        status: 'pending',
+        price: 0
+      })
+    }
+  })
+  
+  // Process shift claims - these are actual shifts
+  data.shiftClaims.forEach(claim => {
+    const date = extractDateFromUtc(claim.startTimeUtc)
+    const month = date.substring(0, 7)
+    const label = mapTimeInDayToLabel(claim.shiftTimeInDay)
+    
+    if (!monthsMap.has(month)) {
+      monthsMap.set(month, new Map())
+    }
+    
+    const daysMap = monthsMap.get(month)!
+    if (!daysMap.has(date)) {
+      daysMap.set(date, [])
+    }
+    
+    const shifts = daysMap.get(date)!
+    
+    // Remove placeholder for this slot if exists
+    const placeholderIndex = shifts.findIndex(
+      s => s.id.startsWith('avail_') && s.label === label
+    )
+    if (placeholderIndex !== -1) {
+      shifts.splice(placeholderIndex, 1)
+    }
+    
+    // Determine status based on claim status
+    let status: Shift['status'] = 'pending'
+    const upperStatus = claim.status.toUpperCase()
+    if (upperStatus === 'APPROVED' || upperStatus === 'PENDING_APPROVAL') {
+      status = 'confirmed'
+    } else if (upperStatus === 'CLAIMED') {
+      status = 'claimed'
+    } else if (upperStatus === 'REJECTED') {
+      status = 'rejected'
+    }
+    
+    shifts.push({
+      id: claim.shiftId,
+      label,
+      startTime: extractTimeFromUtc(claim.startTimeUtc),
+      endTime: extractTimeFromUtc(claim.endTimeUtc),
+      facilityName: claim.livoUnit || 'Hospital',
+      unit: claim.livoUnit,
+      field: claim.livoField,
+      status,
+      price: claim.totalPay
+    })
+  })
+  
+  // Convert maps to arrays and sort
+  const months = Array.from(monthsMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([month, daysMap]) => ({
+      month,
+      days: Array.from(daysMap.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, shifts]) => ({
+          date,
+          shifts: shifts
+            .filter(s => s.status !== 'rejected')
+            .sort((a, b) => {
+              // Sort by label order: TM, TT, TN
+              const order = { 'TM': 0, 'TT': 1, 'TN': 2 }
+              return (order[a.label as keyof typeof order] || 0) - (order[b.label as keyof typeof order] || 0)
+            })
+        }))
+        .filter(day => day.shifts.length > 0)
+    }))
+  
+  return {
+    professionalId,
+    status: 'ready',
+    generatedAt: new Date().toISOString(),
+    months
+  }
+}
+
+// Fixed date range for Winter Plan (Dec 2025 - Jan 2026)
+const WINTER_PLAN_START_DATE = '2025-12-01'
+const WINTER_PLAN_END_DATE = '2026-01-31'
+
+/**
+ * Fetch availability from the new API
+ * Uses the encodedId from URL as userId
+ * Fixed date range: Dec 2025 - Jan 2026
+ * 
+ * @param userId - Encoded professional ID from URL (required)
+ */
+export async function fetchAvailability(userId: string): Promise<WinterPlan> {
+  const params = new URLSearchParams({ 
+    userId,
+    startDate: WINTER_PLAN_START_DATE,
+    endDate: WINTER_PLAN_END_DATE
+  })
+  
+  const url = `${AVAILABILITY_API_BASE_URL}/professional/winter-plan/availability?${params}`
+  
+  console.log('🌐 Fetching availability from:', url)
+  console.log('📋 Using userId (encodedId):', userId)
+  
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
+    }
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch availability: ${response.status} ${response.statusText}`)
+  }
+  
+  const data: AvailabilityApiResponse = await response.json()
+  
+  console.log('📥 Availability API response:', {
+    availabilityCount: data.availability?.length || 0,
+    shiftClaimsCount: data.shiftClaims?.length || 0
+  })
+  
+  // Store raw data in sessionStorage for potential future use
+  sessionStorage.setItem('availability_api_data', JSON.stringify(data))
+  
+  return transformAvailabilityToWinterPlan(data, userId)
+}
+
 // Transform API response to WinterPlan format (legacy format)
 function transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], professionalId: string): WinterPlan {
   // Group shifts by month and date
@@ -484,7 +807,21 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     return buildMockWinterPlan()
   }
   
-  // First, try to use stored shifts data (from receiveShiftsData or POST endpoint)
+  // First priority: Try the new availability API
+  // Uses the encodedId from URL as userId with fixed date range (Dec 2025 - Jan 2026)
+  try {
+    console.log('🌐 Trying new availability API with encodedId:', professionalId)
+    const plan = await fetchAvailability(professionalId)
+    
+    if (plan.months.length > 0) {
+      console.log('✅ Got data from availability API')
+      return plan
+    }
+  } catch (error) {
+    console.log('⚠️ Availability API not available:', error)
+  }
+  
+  // Second, try to use stored shifts data (from receiveShiftsData or POST endpoint)
   const storedResult = getStoredShiftsData()
   if (storedResult) {
     await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
@@ -501,7 +838,7 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     }
   }
 
-  // Second, try to fetch from Firebase (one-time fetch)
+  // Third, try to fetch from Firebase (one-time fetch)
   // Note: For real-time updates, use the useFirebaseShifts hook instead
   if (isFirebaseConfigured()) {
     console.log('🔥 Trying Firebase...')
@@ -520,7 +857,7 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     }
   }
   
-  // Third, try to fetch from proxy server (if available)
+  // Fourth, try to fetch from proxy server (if available)
   try {
     console.log('🔄 Trying proxy server...')
     const proxyResponse = await fetch(`${PROXY_SERVER_URL}/api/shifts/${professionalId}`)
@@ -537,7 +874,7 @@ export async function getWinterPlan(professionalId: string, month?: string): Pro
     console.log('⚠️ Proxy server not available, trying main API...')
   }
   
-  // Finally, fetch from main API
+  // Finally, fetch from main API (legacy)
   console.log('🌐 Fetching shifts from main API...')
   const params = new URLSearchParams()
   if (month) params.append('month', month)

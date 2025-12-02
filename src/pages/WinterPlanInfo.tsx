@@ -3,7 +3,7 @@ import Header from '../components/Layout/Header'
 export default function WinterPlanInfo() {
   return (
     <div className="min-h-screen bg-white">
-      <Header title="Explicación Plan" showBack backPath="/winter-plan" />
+      <Header title="Explicación Plan" showBack backPath="/calendar" />
       
       <div className="px-5 py-6">
         {/* FAQ Section */}

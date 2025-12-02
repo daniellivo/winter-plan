@@ -1,7 +1,8 @@
 import { IconX, IconCheck } from '@tabler/icons-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Shift } from '../../types/winterPlan'
 import ShiftChip from '../Calendar/ShiftChip'
+import { saveRejectedSlot, removeRejectedSlot, getRejectedSlots } from '../../api/winterPlan'
 
 interface ShiftListModalProps {
   shifts: Shift[]
@@ -10,6 +11,8 @@ interface ShiftListModalProps {
   onClose: () => void
   onClaim?: (shiftId: string) => void
   onReject?: () => void
+  onSlotRejected?: (date: string, label: string) => void // Called when all shifts in a slot are rejected
+  onSlotUnrejected?: (date: string, label: string) => void // Called when a slot is unrejected
 }
 
 // Component for a single shift block that can have swipe if multiple shifts
@@ -299,13 +302,48 @@ export default function ShiftListModal({
   onSelect, 
   onClose,
   onClaim,
-  onReject
+  onReject,
+  onSlotRejected,
+  onSlotUnrejected
 }: ShiftListModalProps) {
   const [validationError, setValidationError] = useState<string | null>(null)
   // Global state for rejected shifts across all slots
   const [rejectedShiftIds, setRejectedShiftIds] = useState<Set<string>>(new Set())
+  // Track which slots have been fully rejected
+  const [rejectedSlotLabels, setRejectedSlotLabels] = useState<Set<string>>(new Set())
 
-  const formatDate = (dateStr: string) => {
+  // Group shifts by label (TM, TT, TN)
+  const groupedShifts = {
+    TM: shifts.filter(s => s.label === 'TM'),
+    TT: shifts.filter(s => s.label === 'TT'),
+    TN: shifts.filter(s => s.label === 'TN')
+  }
+
+  // Load previously rejected slots from sessionStorage on mount
+  useEffect(() => {
+    const storedRejected = getRejectedSlots()
+    const rejectedForDate = storedRejected.filter(key => key.startsWith(date))
+    
+    if (rejectedForDate.length > 0) {
+      const newRejectedIds = new Set<string>()
+      const newRejectedLabels = new Set<string>()
+      
+      rejectedForDate.forEach(key => {
+        const label = key.split('-').pop() // Get TM, TT, or TN
+        if (label) {
+          newRejectedLabels.add(label)
+          // Mark all shifts in this slot as rejected
+          const slotShifts = shifts.filter(s => s.label === label)
+          slotShifts.forEach(s => newRejectedIds.add(s.id))
+        }
+      })
+      
+      setRejectedShiftIds(newRejectedIds)
+      setRejectedSlotLabels(newRejectedLabels)
+    }
+  }, [date, shifts])
+
+  const formatDateStr = (dateStr: string) => {
     const d = new Date(dateStr)
     return d.toLocaleDateString('es-ES', { 
       weekday: 'long', 
@@ -314,11 +352,28 @@ export default function ShiftListModal({
     })
   }
 
+  // Check if all shifts in a slot are rejected
+  const checkSlotFullyRejected = (label: string, rejectedIds: Set<string>): boolean => {
+    const slotShifts = shifts.filter(s => s.label === label)
+    return slotShifts.length > 0 && slotShifts.every(s => rejectedIds.has(s.id))
+  }
+
   // Handle rejecting a shift
   const handleRejectShift = (shiftId: string) => {
+    const shift = shifts.find(s => s.id === shiftId)
+    if (!shift) return
+    
     setRejectedShiftIds(prev => {
       const newSet = new Set(prev)
       newSet.add(shiftId)
+      
+      // Check if all shifts in this slot are now rejected
+      if (checkSlotFullyRejected(shift.label, newSet) && !rejectedSlotLabels.has(shift.label)) {
+        // Save to sessionStorage
+        saveRejectedSlot(date, shift.label)
+        setRejectedSlotLabels(prev => new Set(prev).add(shift.label))
+        if (onSlotRejected) onSlotRejected(date, shift.label)
+      }
       
       // Check if ALL shifts in the day are now rejected
       const allShiftsRejected = shifts.every(s => newSet.has(s.id))
@@ -335,18 +390,26 @@ export default function ShiftListModal({
 
   // Handle unreject a shift (toggle off)
   const handleUnrejectShift = (shiftId: string) => {
+    const shift = shifts.find(s => s.id === shiftId)
+    if (!shift) return
+    
     setRejectedShiftIds(prev => {
       const newSet = new Set(prev)
       newSet.delete(shiftId)
+      
+      // If this slot was fully rejected, now it's not
+      if (rejectedSlotLabels.has(shift.label)) {
+        removeRejectedSlot(date, shift.label)
+        setRejectedSlotLabels(prev => {
+          const updated = new Set(prev)
+          updated.delete(shift.label)
+          return updated
+        })
+        if (onSlotUnrejected) onSlotUnrejected(date, shift.label)
+      }
+      
       return newSet
     })
-  }
-
-  // Group shifts by label (TM, TT, TN)
-  const groupedShifts = {
-    TM: shifts.filter(s => s.label === 'TM'),
-    TT: shifts.filter(s => s.label === 'TT'),
-    TN: shifts.filter(s => s.label === 'TN')
   }
 
   // Get currently claimed shifts
@@ -409,7 +472,7 @@ export default function ShiftListModal({
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              Turnos para {formatDate(date)}
+              Turnos para {formatDateStr(date)}
             </h3>
             <button 
               onClick={onClose}

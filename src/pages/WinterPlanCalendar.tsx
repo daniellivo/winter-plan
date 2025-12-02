@@ -3,7 +3,7 @@ import { IconInfoCircle, IconCheck } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, unclaimShift, sendCompletedPlan, getClaimedShiftIds, clearClaimedShifts } from '../api/winterPlan'
+import { getWinterPlan, claimShift, unclaimShift, sendCompletedPlan, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -28,6 +28,9 @@ export default function WinterPlanCalendar() {
   // Plan completion state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+  
+  // Rejected slots state (array of "YYYY-MM-DD-TM" format strings)
+  const [rejectedSlots, setRejectedSlots] = useState<string[]>(() => getRejectedSlots())
 
   // Firebase real-time listener
   const { 
@@ -403,6 +406,7 @@ export default function WinterPlanCalendar() {
           month={currentMonth}
           days={currentMonthData?.days || []}
           onDayClick={handleDayClick}
+          rejectedSlots={rejectedSlots}
         />
 
         {/* Plan completado button - fixed at bottom */}
@@ -470,6 +474,14 @@ export default function WinterPlanCalendar() {
           onClose={closeModal}
           onClaim={handleClaimFromModal}
           onReject={handleRejectFromModal}
+          onSlotRejected={(date, label) => {
+            const key = `${date}-${label}`
+            setRejectedSlots(prev => prev.includes(key) ? prev : [...prev, key])
+          }}
+          onSlotUnrejected={(date, label) => {
+            const key = `${date}-${label}`
+            setRejectedSlots(prev => prev.filter(k => k !== key))
+          }}
         />
       )}
     </div>
