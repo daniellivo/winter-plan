@@ -11,7 +11,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app/
 const AVAILABILITY_API_BASE_URL = 'https://api.getlivo.com'
 
 // Proxy server URL for local development with HTTP POST
-const PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
+const _PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
 
 // ============================================
 // New Availability API Types
@@ -427,7 +427,7 @@ function isConfirmedStatus(status?: string): boolean {
 }
 
 // Transform n8n format (shiftsByDate) to WinterPlan format
-function transformN8nToWinterPlan(data: N8nData, professionalId: string): WinterPlan {
+function _transformN8nToWinterPlan(data: N8nData, professionalId: string): WinterPlan {
   const monthsMap = new Map<string, Map<string, Shift[]>>()
   // Track confirmed slots per day: Map<date, Set<label>>
   const confirmedSlots = new Map<string, Set<string>>()
@@ -723,33 +723,40 @@ export async function fetchAvailability(userId: string): Promise<WinterPlan> {
   console.log('🌐 Fetching availability from:', url)
   console.log('📋 Using userId (encodedId):', userId)
   
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      // Don't set Content-Type for GET requests - it triggers CORS preflight
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details')
+      console.error('❌ API Error:', response.status, response.statusText, errorText)
+      throw new Error(`Failed to fetch availability: ${response.status} ${response.statusText}`)
     }
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch availability: ${response.status} ${response.statusText}`)
+    
+    const data: AvailabilityApiResponse = await response.json()
+    
+    console.log('📥 Availability API response:', {
+      availabilityCount: data.availability?.length || 0,
+      shiftClaimsCount: data.shiftClaims?.length || 0
+    })
+    
+    // Store raw data in sessionStorage for potential future use
+    sessionStorage.setItem('availability_api_data', JSON.stringify(data))
+    
+    return transformAvailabilityToWinterPlan(data, userId)
+  } catch (error) {
+    console.error('❌ Fetch error (possibly CORS):', error)
+    throw error
   }
-  
-  const data: AvailabilityApiResponse = await response.json()
-  
-  console.log('📥 Availability API response:', {
-    availabilityCount: data.availability?.length || 0,
-    shiftClaimsCount: data.shiftClaims?.length || 0
-  })
-  
-  // Store raw data in sessionStorage for potential future use
-  sessionStorage.setItem('availability_api_data', JSON.stringify(data))
-  
-  return transformAvailabilityToWinterPlan(data, userId)
 }
 
 // Transform API response to WinterPlan format (legacy format)
-function transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], professionalId: string): WinterPlan {
+function _transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], professionalId: string): WinterPlan {
   // Group shifts by month and date
   const monthsMap = new Map<string, Map<string, Shift[]>>()
   
@@ -801,98 +808,15 @@ function transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], pro
   }
 }
 
-export async function getWinterPlan(professionalId: string, month?: string): Promise<WinterPlan> {
+export async function getWinterPlan(professionalId: string, _month?: string): Promise<WinterPlan> {
   if (USE_MOCKS) {
     await new Promise(resolve => setTimeout(resolve, 300))
     return buildMockWinterPlan()
   }
   
-  // First priority: Try the new availability API
-  // Uses the encodedId from URL as userId with fixed date range (Dec 2025 - Jan 2026)
-  try {
-    console.log('🌐 Trying new availability API with encodedId:', professionalId)
-    const plan = await fetchAvailability(professionalId)
-    
-    if (plan.months.length > 0) {
-      console.log('✅ Got data from availability API')
-      return plan
-    }
-  } catch (error) {
-    console.log('⚠️ Availability API not available:', error)
-  }
-  
-  // Second, try to use stored shifts data (from receiveShiftsData or POST endpoint)
-  const storedResult = getStoredShiftsData()
-  if (storedResult) {
-    await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
-    
-    if (storedResult.isN8n) {
-      console.log('📦 Using stored n8n format data')
-      return transformN8nToWinterPlan(storedResult.data as N8nData, professionalId)
-    } else {
-      const legacyData = storedResult.data as ShiftDetailsResponse[]
-      if (legacyData.length > 0) {
-        console.log('📦 Using stored shifts data:', legacyData.length, 'shifts')
-        return transformShiftsToWinterPlan(legacyData, professionalId)
-      }
-    }
-  }
-
-  // Third, try to fetch from Firebase (one-time fetch)
-  // Note: For real-time updates, use the useFirebaseShifts hook instead
-  if (isFirebaseConfigured()) {
-    console.log('🔥 Trying Firebase...')
-    const firebaseData = await getShiftsFromFirebase(professionalId)
-    if (firebaseData) {
-      console.log('✅ Got data from Firebase')
-      // Store in sessionStorage for future use
-      sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(firebaseData))
-      
-      // Check format and transform accordingly
-      if (isN8nFormat(firebaseData)) {
-        return transformN8nToWinterPlan(firebaseData, professionalId)
-      } else if (Array.isArray(firebaseData) && firebaseData.length > 0) {
-        return transformShiftsToWinterPlan(firebaseData, professionalId)
-      }
-    }
-  }
-  
-  // Fourth, try to fetch from proxy server (if available)
-  try {
-    console.log('🔄 Trying proxy server...')
-    const proxyResponse = await fetch(`${PROXY_SERVER_URL}/api/shifts/${professionalId}`)
-    if (proxyResponse.ok) {
-      const proxyData = await proxyResponse.json()
-      if (proxyData.status === 'success' && proxyData.data) {
-        console.log('✅ Got data from proxy server')
-        // Store in sessionStorage for future use
-        sessionStorage.setItem(SHIFTS_STORAGE_KEY, JSON.stringify(proxyData.data))
-        return transformShiftsToWinterPlan(proxyData.data, professionalId)
-      }
-    }
-  } catch (error) {
-    console.log('⚠️ Proxy server not available, trying main API...')
-  }
-  
-  // Finally, fetch from main API (legacy)
-  console.log('🌐 Fetching shifts from main API...')
-  const params = new URLSearchParams()
-  if (month) params.append('month', month)
-  
-  const response = await fetch(
-    `${API_BASE_URL}/professionals/${professionalId}?${params}`,
-    {
-      headers: {
-        'Authorization': `Bearer ${sessionStorage.getItem('winter_plan_token') || ''}`,
-        'X-Professional-Id': professionalId
-      }
-    }
-  )
-  
-  if (!response.ok) throw new Error('Failed to fetch winter plan')
-  
-  const data: ShiftDetailsResponse[] = await response.json()
-  return transformShiftsToWinterPlan(data, professionalId)
+  // ONLY use the new availability API - no fallbacks for debugging
+  console.log('🌐 Calling availability API with userId:', professionalId)
+  return await fetchAvailability(professionalId)
 }
 
 export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
