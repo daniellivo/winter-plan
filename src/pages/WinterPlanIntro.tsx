@@ -44,12 +44,12 @@ export default function WinterPlanIntro() {
         <div className="space-y-6 mb-8">
           <div className="text-center">
             <h3 className="font-bold text-gray-900 mb-1">1. Marca tus días libres</h3>
-            <p className="text-sm text-gray-600">Dinos cuándo puedes trabajar.</p>
+            <p className="text-sm text-gray-600">Dinos cuándo puedes trabajar en diciembre y enero</p>
           </div>
           
           <div className="text-center">
             <h3 className="font-bold text-gray-900 mb-1">2. Te preparamos tu plan</h3>
-            <p className="text-sm text-gray-600">Visualiza tu propuesta de turnos.</p>
+            <p className="text-sm text-gray-600">Visualiza tu propuesta de turnos</p>
           </div>
           
           <div className="text-center">
