@@ -61,21 +61,11 @@ export default function WinterPlanIntro() {
           </div>
         </div>
 
-        {/* Primary CTA */}
-        <div className="mb-4">
-          <PrimaryButton onClick={handlePreparePlan}>
-            Marcar mi Disponibilidad
-          </PrimaryButton>
-        </div>
-
-        {/* Secondary CTA - Ver plan */}
+        {/* Primary CTA - Ver plan */}
         <div className="mb-8">
-          <button
-            onClick={() => navigate('/calendar')}
-            className="w-full py-3 px-6 text-[#2cbeff] font-semibold text-base border-2 border-[#2cbeff] rounded-full hover:bg-[#2cbeff]/5 transition-colors"
-          >
+          <PrimaryButton onClick={() => navigate('/calendar')}>
             Ver mi plan
-          </button>
+          </PrimaryButton>
         </div>
 
         {/* Gratitude letter */}
@@ -118,8 +108,8 @@ export default function WinterPlanIntro() {
         </div>
 
         {/* Bottom CTA */}
-        <PrimaryButton onClick={handlePreparePlan}>
-          Marcar mi Disponibilidad
+        <PrimaryButton onClick={() => navigate('/calendar')}>
+          Ver mi plan
         </PrimaryButton>
       </div>
     </div>
