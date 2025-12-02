@@ -8,7 +8,7 @@ import type { WinterPlan, ShiftDetails, CancellationPolicy, Shift } from '../typ
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://api.livo.app/winter-plan'
 
 // New availability API base URL
-const AVAILABILITY_API_BASE_URL = 'https://devapi.getlivo.com'
+const AVAILABILITY_API_BASE_URL = 'https://api.getlivo.com'
 
 // Proxy server URL for local development with HTTP POST
 const PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:3001'
