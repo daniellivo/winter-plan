@@ -1,4 +1,4 @@
-import { IconInfoCircle, IconLock } from '@tabler/icons-react'
+import { IconInfoCircle } from '@tabler/icons-react'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
 import LockedCalendar from '../components/Calendar/LockedCalendar'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -92,10 +92,13 @@ export default function WinterPlanIntro() {
           </p>
         </div>
 
-        {/* Locked calendar section */}
+        {/* Locked calendar section - Clickable */}
         <div className="mb-8 -mx-5">
           {/* Calendar with overlay */}
-          <div className="relative">
+          <button 
+            onClick={() => navigate('/calendar')}
+            className="relative w-full cursor-pointer active:scale-[0.99] transition-transform"
+          >
             {/* Real calendar background */}
             <div className="px-4">
               <LockedCalendar year={2025} month={11} />
@@ -105,19 +108,15 @@ export default function WinterPlanIntro() {
             <div className="absolute inset-0 backdrop-blur-[2px] bg-gray-100/80" />
             
             {/* Lock card on top */}
-            <div className="absolute inset-0 flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="bg-gray-100 rounded-xl p-6 text-center shadow-sm">
-                <h4 className="font-semibold text-gray-800 mb-3">Tus turnos de Invierno</h4>
-                <div className="mb-3">
-                  <IconLock size={32} className="mx-auto text-gray-400" />
-                </div>
-                <p className="text-sm text-gray-600">
-                  Aquí aparecerán tu<br />
-                  Plan de Invierno
+                <h4 className="font-semibold text-gray-800 mb-2">Tus turnos de Invierno</h4>
+                <p className="text-[#2cbeff] font-semibold text-sm">
+                  Ver mi calendario 📅
                 </p>
               </div>
             </div>
-          </div>
+          </button>
         </div>
 
         {/* Bottom CTA */}
