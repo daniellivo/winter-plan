@@ -81,22 +81,15 @@ export default function WinterPlanIntro() {
         </div>
 
         {/* Gratitude letter */}
-        <div className="bg-gradient-to-br from-[#e8d5b7] to-[#d4c4a8] rounded-2xl p-6 mb-8 shadow-sm relative overflow-hidden">
-          <h4 className="text-center font-semibold text-gray-800 mb-3 relative z-10">
+        <div className="bg-gradient-to-br from-[#e8d5b7] to-[#d4c4a8] rounded-2xl p-6 mb-8 shadow-sm">
+          <h4 className="text-center font-semibold text-gray-800 mb-3">
             Carta de agradecimiento 💌
           </h4>
-          <p className="text-sm text-gray-700 text-center leading-relaxed relative z-10">
+          <p className="text-sm text-gray-700 text-center leading-relaxed">
             Gracias por ayudar a mantener el sistema sanitario en los meses más complicados. 
             Este plan existe para que tú también puedas organizarte con tiempo, descansar y 
             aprovechar al máximo los días que decides trabajar.
           </p>
-          {/* Stamp/Sello */}
-          <img 
-            src="/sello.svg" 
-            alt="Sello Livo" 
-            className="absolute -bottom-4 -left-4 w-24 h-24 opacity-30 pointer-events-none"
-            style={{ transform: 'rotate(-25deg)' }}
-          />
         </div>
 
         {/* Locked calendar section - Clickable */}

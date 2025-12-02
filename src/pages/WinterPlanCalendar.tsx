@@ -377,9 +377,7 @@ export default function WinterPlanCalendar() {
         {/* Intro text */}
         <div className="text-center py-4">
           <p className="text-gray-600 text-sm leading-relaxed">
-            Este invierno en Livo trabajamos para ti.
-            <br />
-            Te planificamos los turnos según tus preferencias.
+          Este invierno en Livo te preparamos un plan de turnos personalizado que encaje contigo.
           </p>
         </div>
 
