@@ -95,6 +95,9 @@ interface N8nData {
 // Storage key for shifts data
 const SHIFTS_STORAGE_KEY = 'winter_plan_shifts_data'
 
+// Storage key for available shifts from the new API
+const AVAILABLE_SHIFTS_STORAGE_KEY = 'winter_plan_available_shifts_data'
+
 // Storage key for claimed shifts (persists across navigation)
 const CLAIMED_SHIFTS_KEY = 'winter_plan_claimed_shifts'
 
@@ -974,9 +977,28 @@ export async function getWinterPlan(professionalId: string, _month?: string): Pr
     return buildMockWinterPlan()
   }
   
-  // ONLY use the new availability API - no fallbacks for debugging
-  console.log('🌐 Calling availability API with userId:', professionalId)
-  return await fetchAvailability(professionalId)
+  // Use the available-shifts API to get real shift data
+  console.log('🌐 Calling available-shifts API with userId:', professionalId)
+  const availableShiftsData = await fetchAvailableShifts(professionalId)
+  
+  // Store the raw data for use in getShiftDetails
+  sessionStorage.setItem(AVAILABLE_SHIFTS_STORAGE_KEY, JSON.stringify(availableShiftsData))
+  
+  return transformAvailableShiftsToWinterPlan(availableShiftsData, professionalId)
+}
+
+/**
+ * Get stored available shifts data from sessionStorage
+ */
+function getStoredAvailableShiftsData(): AvailableShiftsResponse | null {
+  try {
+    const stored = sessionStorage.getItem(AVAILABLE_SHIFTS_STORAGE_KEY)
+    if (!stored) return null
+    return JSON.parse(stored)
+  } catch (error) {
+    console.error('❌ Error reading stored available shifts:', error)
+    return null
+  }
 }
 
 export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
@@ -985,7 +1007,76 @@ export async function getShiftDetails(shiftId: string): Promise<ShiftDetails> {
     return { ...mockShiftDetails, id: shiftId }
   }
   
-  // First, try to find in stored shifts data
+  // First, try to find in stored available-shifts data (from new API)
+  const availableShiftsData = getStoredAvailableShiftsData()
+  if (availableShiftsData) {
+    await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
+    
+    for (const dayData of availableShiftsData.shiftsByDate) {
+      const found = dayData.shifts?.find(s => String(s.id) === shiftId)
+      if (found) {
+        console.log('📦 Using stored available-shifts data for:', shiftId)
+        
+        // Parse payment breakdown to extract bonus if present
+        let facilityAmount = found.shiftTotalPay || 0
+        let bonusAmount = 0
+        
+        if (found.paymentBreakdown && found.paymentBreakdown.length > 0) {
+          found.paymentBreakdown.forEach(item => {
+            const amount = parseFloat(item.amount.replace(/[^0-9.-]+/g, '')) || 0
+            if (item.label.toLowerCase().includes('bonus') || item.label.toLowerCase().includes('livo')) {
+              bonusAmount = amount
+            } else {
+              facilityAmount = amount
+            }
+          })
+        }
+        
+        // Transform AvailableShift to ShiftDetails format
+        return {
+          id: String(found.id),
+          externalId: found.externalId || String(found.id),
+          professionalId: '',
+          facility: {
+            id: String(found.facility.id),
+            name: found.facility.name,
+            rating: found.facility.facilityReview?.averageRating || 0,
+            reviewsCount: found.facility.facilityReview?.totalReviews || 0,
+            address: found.facility.address || '',
+            city: found.facility.addressCity || '',
+            googleMapsUrl: found.facility.mapLink || '',
+            generalInfoDocumentUrl: found.facility.generalInfoDocumentUrl,
+            shiftGuidanceDocumentUrl: found.facility.shiftGuidanceDocumentUrl,
+            allowInternalProsToCancelApprovedClaims: found.facility.allowInternalProsToCancelApprovedClaims,
+            images: {
+              logo: found.facility.logo,
+              banner: found.facility.banner
+            }
+          },
+          unit: found.unit || found.livoUnit || found.specialization?.displayText || '',
+          field: found.professionalField || found.specialization?.name || '',
+          date: dayData.date,
+          startTime: found.localStartTime,
+          endTime: found.localFinishTime,
+          remuneration: {
+            facilityAmount: facilityAmount,
+            bonusAmount: bonusAmount,
+            currency: found.currency || 'EUR',
+            total: found.shiftTotalPay || 0
+          },
+          tags: {
+            parking: found.tags?.includes('parking') || found.perks?.some(p => p.label?.displayText?.toLowerCase().includes('parking')) || false,
+            food: found.tags?.includes('food') || found.perks?.some(p => p.label?.displayText?.toLowerCase().includes('dieta')) || false,
+            cafeteria: found.tags?.includes('cafeteria') || found.perks?.some(p => p.label?.displayText?.toLowerCase().includes('cafetería')) || false,
+            casiopea: found.tags?.includes('casiopea') || found.perks?.some(p => p.label?.displayText?.toLowerCase().includes('casiopea')) || false
+          },
+          description: found.details || ''
+        }
+      }
+    }
+  }
+  
+  // Fallback: try to find in legacy stored shifts data
   const storedResult = getStoredShiftsData()
   if (storedResult) {
     await new Promise(resolve => setTimeout(resolve, 100)) // Simulate network delay
