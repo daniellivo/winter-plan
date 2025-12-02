@@ -318,6 +318,37 @@ export default function ShiftListModal({
   const [rejectedShiftIds, setRejectedShiftIds] = useState<Set<string>>(new Set())
   // Track which slots have been fully rejected
   const [rejectedSlotLabels, setRejectedSlotLabels] = useState<Set<string>>(new Set())
+  
+  // Swipe-to-close state
+  const [dragStartY, setDragStartY] = useState(0)
+  const [dragCurrentY, setDragCurrentY] = useState(0)
+  const [isDraggingModal, setIsDraggingModal] = useState(false)
+  
+  const dragOffset = isDraggingModal ? Math.max(0, dragCurrentY - dragStartY) : 0
+  const CLOSE_THRESHOLD = 100 // pixels to drag before closing
+  
+  const handleDragStart = (e: React.TouchEvent) => {
+    setDragStartY(e.touches[0].clientY)
+    setDragCurrentY(e.touches[0].clientY)
+    setIsDraggingModal(true)
+  }
+  
+  const handleDragMove = (e: React.TouchEvent) => {
+    if (!isDraggingModal) return
+    setDragCurrentY(e.touches[0].clientY)
+  }
+  
+  const handleDragEnd = () => {
+    if (!isDraggingModal) return
+    setIsDraggingModal(false)
+    
+    if (dragOffset > CLOSE_THRESHOLD) {
+      onClose()
+    }
+    
+    setDragStartY(0)
+    setDragCurrentY(0)
+  }
 
   // Group shifts by label (TM, TT, TN)
   const groupedShifts = {
@@ -495,10 +526,23 @@ export default function ShiftListModal({
       />
       
       {/* Modal */}
-      <div className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-2xl z-50 animate-slide-up max-h-[85vh] overflow-y-auto overflow-x-hidden">
+      <div 
+        className="fixed bottom-0 left-0 right-0 max-w-[430px] mx-auto bg-white rounded-t-2xl z-50 animate-slide-up max-h-[85vh] overflow-y-auto overflow-x-hidden"
+        style={{
+          transform: `translateY(${dragOffset}px)`,
+          transition: isDraggingModal ? 'none' : 'transform 0.3s ease-out'
+        }}
+      >
         <div className="p-4 overflow-x-hidden">
-          {/* Handle */}
-          <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+          {/* Handle - draggable area */}
+          <div 
+            className="py-3 -mt-3 cursor-grab active:cursor-grabbing touch-none"
+            onTouchStart={handleDragStart}
+            onTouchMove={handleDragMove}
+            onTouchEnd={handleDragEnd}
+          >
+            <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto" />
+          </div>
           
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
