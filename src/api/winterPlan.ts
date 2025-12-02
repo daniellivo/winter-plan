@@ -106,6 +106,7 @@ const CLAIMED_SHIFTS_KEY = 'winter_plan_claimed_shifts'
 // ============================================
 
 const FIELDS_TRANSLATION: Record<string, string> = {
+  // Códigos en mayúsculas
   'ALLERGOLOGY': 'Alergología',
   'TRAVEL_HEALTH': 'Atención al viajero',
   'HOME_CARE': 'Atención domiciliaria',
@@ -156,10 +157,63 @@ const FIELDS_TRANSLATION: Record<string, string> = {
   'SUPERVISION': 'Supervisión',
   'MEDICAL_TRANSFERS': 'Traslados sanitarios',
   'TRAUMATOLOGY': 'Traumatología',
-  'MATERNAL_AND_CHILD': 'Materno-Infantil'
+  'MATERNAL_AND_CHILD': 'Materno-Infantil',
+  // Textos en inglés (del API)
+  'Allergology': 'Alergología',
+  'Travel health': 'Atención al viajero',
+  'Home care': 'Atención domiciliaria',
+  'Cardiology': 'Cardiología',
+  'Electrophysiology': 'Electrofisiologia',
+  'General surgery': 'Cirugía general',
+  'Vascular surgery': 'Cirugía vascular',
+  'Medical event coverage': 'Cobertura de eventos',
+  'Wound care': 'Curas',
+  'Extractions': 'Extracciones',
+  'Intravenous therapy team': 'Equipo de terapia intravenosa',
+  'Dermatology': 'Dermatología',
+  'Gastroenterology': 'Digestivo',
+  'People with disabilities': 'Diversidad funcional',
+  'Medical education': 'Docencia',
+  'Endocrinology and nutrition': 'Endocrinología',
+  'Geriatrics': 'Geriatría',
+  'Infectious diseases': 'Infecciosas',
+  'Midwives': 'Matronas',
+  'Maxillofacial': 'Maxilofacial',
+  'Aesthetic medicine': 'Medicina estética',
+  'Internal medicine': 'Medicina Interna',
+  'Nephrology and urology': 'Nefrología y Urología',
+  'Neonatology': 'Neonatos',
+  'Pulmonology': 'Neumología',
+  'Neurosurgery': 'Neurocirugía',
+  'Neurology': 'Neurología',
+  'Obstetrics and gynecology': 'Ginecología',
+  'Gynecology': 'Ginecología',
+  'Dentistry': 'Odontología',
+  'Ophthalmology': 'Oftalmología',
+  'Oncology and hematology': 'Oncohematología',
+  'Blood bank': 'Banco de sangre',
+  'Ostomies': 'Ostomías',
+  'Otolaryngology': 'Otorrinolaringología',
+  'Palliative care': 'Paliativos',
+  'Pediatrics': 'Pediatría',
+  'Versatile': 'Polivalente',
+  'Rehabilitation': 'Rehabilitación',
+  'Fertility': 'Reproducción asistida',
+  'Rheumatology': 'Reumatología',
+  'Medical check-ups': 'Revisiones médicas',
+  'Mental health addictions': 'S. Mental adicciones',
+  'Adult mental health': 'S. Mental adultos',
+  'Child mental health': 'S. Mental infantil',
+  'Mental health psychogeriatrics': 'S. Mental psicogeriatría',
+  'Mental health TCA': 'S. Mental TCA',
+  'Supervision': 'Supervisión',
+  'Medical transfers': 'Traslados sanitarios',
+  'Traumatology': 'Traumatología',
+  'Maternal and child': 'Materno-Infantil'
 }
 
 const UNITS_TRANSLATION: Record<string, string> = {
+  // Códigos en mayúsculas
   'MEDICAL_HOSPITALIZATION': 'Hospitalización médica',
   'SURGICAL_HOSPITALIZATION': 'Hospitalización quirúrgica',
   'MEDICAL_SURGICAL_HOSPITALIZATION': 'Hospitalización medico-quirúrgica',
@@ -187,7 +241,38 @@ const UNITS_TRANSLATION: Record<string, string> = {
   'OUTPATIENT_CLINICS': 'Consultas externas',
   'EXTRACTIONS': 'Extracciones',
   'LABORATORY': 'Laboratorio',
-  'OUTPATIENT_SURGERY_UNIT': 'UCMA/UCSI'
+  'OUTPATIENT_SURGERY_UNIT': 'UCMA/UCSI',
+  // Textos en inglés (del API)
+  'Medical hospitalization': 'Hospitalización médica',
+  'Surgical hospitalization': 'Hospitalización quirúrgica',
+  'Medical-surgical hospitalization': 'Hospitalización medico-quirúrgica',
+  'Medical surgical hospitalization': 'Hospitalización medico-quirúrgica',
+  'Emergency': 'Urgencias',
+  'Intensive care unit': 'UCI',
+  'ICU': 'UCI',
+  'Intermediate care unit': 'Semicríticos',
+  'Hemodialysis': 'Hemodiálisis',
+  'Delivery room': 'Sala de partos',
+  'Endoscopy': 'Endoscopias',
+  'Urodynamics room': 'Sala de Urodinamia',
+  'Operating room - Anesthesia': 'Quirófano - Anestesia',
+  'Operating room - Instrumentalist': 'Quirófano - Instrumentista',
+  'Operating room - Circulating': 'Quirófano - Circulante',
+  'Operating room - Sterilization': 'Quirófano - Esterilización',
+  'Operating room - Perfusionist': 'Quirófano - Perfusionista',
+  'Operating room - REA': 'Quirófano - REA/URPA',
+  'Operating room': 'Quirófano',
+  'Short stay unit': 'Unidad de corta estancia',
+  'Major ambulatory surgery unit': 'Unidad de cirugía ambulatoria',
+  'Radiology': 'Radiología diagnóstica',
+  'Interventional radiology': 'Radiología intervencionista',
+  'Hemodynamics room': 'Sala de hemodinámica',
+  'Home hospitalization': 'Hospitalización a domicilio',
+  'Day care hospital': 'Hospital de día',
+  'Convalescence': 'Convalecencia',
+  'Outpatient clinics': 'Consultas externas',
+  'Laboratory': 'Laboratorio',
+  'Outpatient surgery unit': 'UCMA/UCSI'
 }
 
 /**
@@ -195,10 +280,23 @@ const UNITS_TRANSLATION: Record<string, string> = {
  */
 export function translateField(fieldCode: string | undefined): string {
   if (!fieldCode) return ''
-  // First check if it's already a display text (not a code)
+  
+  // First check if it's already a Spanish display text
   if (Object.values(FIELDS_TRANSLATION).includes(fieldCode)) return fieldCode
-  // Try to translate the code
-  return FIELDS_TRANSLATION[fieldCode] || fieldCode
+  
+  // Try direct match
+  if (FIELDS_TRANSLATION[fieldCode]) return FIELDS_TRANSLATION[fieldCode]
+  
+  // Try case-insensitive match
+  const lowerCode = fieldCode.toLowerCase()
+  for (const [key, value] of Object.entries(FIELDS_TRANSLATION)) {
+    if (key.toLowerCase() === lowerCode || key.toLowerCase().replace(/_/g, ' ') === lowerCode) {
+      return value
+    }
+  }
+  
+  // Return original if no translation found
+  return fieldCode
 }
 
 /**
@@ -206,10 +304,23 @@ export function translateField(fieldCode: string | undefined): string {
  */
 export function translateUnit(unitCode: string | undefined): string {
   if (!unitCode) return ''
-  // First check if it's already a display text (not a code)
+  
+  // First check if it's already a Spanish display text
   if (Object.values(UNITS_TRANSLATION).includes(unitCode)) return unitCode
-  // Try to translate the code
-  return UNITS_TRANSLATION[unitCode] || unitCode
+  
+  // Try direct match
+  if (UNITS_TRANSLATION[unitCode]) return UNITS_TRANSLATION[unitCode]
+  
+  // Try case-insensitive match
+  const lowerCode = unitCode.toLowerCase()
+  for (const [key, value] of Object.entries(UNITS_TRANSLATION)) {
+    if (key.toLowerCase() === lowerCode || key.toLowerCase().replace(/_/g, ' ') === lowerCode) {
+      return value
+    }
+  }
+  
+  // Return original if no translation found
+  return unitCode
 }
 
 // Storage key for rejected slots (persists across navigation)
