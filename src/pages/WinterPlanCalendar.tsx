@@ -292,7 +292,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Calendario 🎄
+              🎄 Aquí está tu Plan 🎄
             </h1>
             <div className="w-10" />
           </div>
@@ -314,7 +314,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Calendario 🎄
+              🎄 Aquí está tu Plan 🎄
             </h1>
             <div className="w-10" />
           </div>
@@ -339,7 +339,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Calendario 🎄
+              🎄 Aquí está tu Plan 🎄
             </h1>
             <div className="w-10" />
           </div>
@@ -374,7 +374,7 @@ export default function WinterPlanCalendar() {
             <span>Atrás</span>
           </button>
           <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-            🎄 Aquí está tu Calendario 🎄
+            🎄 Aquí está tu Plan 🎄
           </h1>
           <button 
             onClick={() => navigate('/info')}
@@ -393,7 +393,7 @@ export default function WinterPlanCalendar() {
         <div className="text-center py-4">
           <p className="text-gray-600 text-sm leading-relaxed">
             Pulsa en los días marcados para ver y elegir tus turnos.
-            <br /><br />
+            <br />
             Confirma todos tus turnos a la vez en el botón final.
           </p>
         </div>
