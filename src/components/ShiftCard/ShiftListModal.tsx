@@ -95,6 +95,12 @@ function ShiftBlock({
       return
     }
     
+    // If shift was claimed, unclaim it first (mutual exclusion)
+    const shift = shifts.find(s => s.id === shiftId)
+    if (shift?.status === 'claimed' && onClaim) {
+      onClaim(shiftId) // Toggle off claimed
+    }
+    
     // Mark as rejected locally (no API call)
     onRejectShift(shiftId)
     

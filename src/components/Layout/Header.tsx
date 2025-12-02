@@ -25,13 +25,14 @@ export default function Header({ title, showBack, showInfo, onInfoClick, backPat
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-100">
       <div className="flex items-center justify-between h-14 px-4">
-        <div className="w-10">
+        <div className="flex-shrink-0">
           {showBack && (
             <button 
               onClick={handleBack}
-              className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              className="p-2 -ml-2 text-gray-700 hover:bg-gray-100 rounded-full transition-colors flex items-center gap-1"
             >
               <IconChevronLeft size={24} />
+              <span className="text-sm font-medium">Atrás</span>
             </button>
           )}
         </div>

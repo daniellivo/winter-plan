@@ -46,7 +46,7 @@ export default function MonthSelector({
         onClick={onNext}
         disabled={!canGoNext}
         className={`
-          p-2 rounded-full transition-colors
+          p-2 rounded-full transition-colors relative
           ${canGoNext 
             ? 'text-gray-600 hover:bg-gray-100' 
             : 'text-gray-300 cursor-not-allowed'
@@ -54,6 +54,9 @@ export default function MonthSelector({
         `}
       >
         <IconChevronRight size={24} />
+        {canGoNext && (
+          <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full" />
+        )}
       </button>
     </div>
   )
