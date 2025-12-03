@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
-import { IconInfoCircle, IconCheck, IconChevronLeft } from '@tabler/icons-react'
+import { IconHeadset, IconCheck, IconChevronLeft } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
-import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds } from '../api/winterPlan'
+import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds, fetchProfessionalAvailability } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { WinterPlan, Shift } from '../types/winterPlan'
+import type { AvailabilitySlot, ShiftClaim } from '../api/winterPlan'
 
 export default function WinterPlanCalendar() {
   const navigate = useAppNavigation()
@@ -34,6 +35,10 @@ export default function WinterPlanCalendar() {
   
   // Rejected individual shift IDs
   const [rejectedShiftIds, setRejectedShiftIds] = useState<string[]>(() => getRejectedShiftIds())
+
+  // Availability and shift claims state
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([])
+  const [shiftClaims, setShiftClaims] = useState<ShiftClaim[]>([])
 
   // Firebase real-time listener
   const { 
@@ -69,10 +74,20 @@ export default function WinterPlanCalendar() {
     try {
       setLoading(true)
       setError(null)
-      const data = await getWinterPlan(professionalId)
+      // Call both APIs in parallel
+      const [planData, availabilityData] = await Promise.all([
+        getWinterPlan(professionalId),
+        fetchProfessionalAvailability(professionalId).catch(err => {
+          console.error('Failed to fetch availability:', err)
+          return { availability: [], shiftClaims: [] }
+        })
+      ])
       // Apply any claimed shifts from sessionStorage
-      const planWithClaimed = applyClaimedShiftsToPlan(data)
+      const planWithClaimed = applyClaimedShiftsToPlan(planData)
       setPlan(planWithClaimed)
+      // Set availability and shiftClaims
+      setAvailability(availabilityData.availability || [])
+      setShiftClaims(availabilityData.shiftClaims || [])
     } catch {
       setError('No pudimos cargar tu plan. Por favor, inténtalo de nuevo.')
     } finally {
@@ -377,10 +392,10 @@ export default function WinterPlanCalendar() {
             🎄 Aquí está tu Plan 🎄
           </h1>
           <button 
-            onClick={() => navigate('/info')}
+            onClick={() => window.open('https://wa.me/34930491425', '_blank')}
             className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
           >
-            <IconInfoCircle size={20} />
+            <IconHeadset size={20} />
           </button>
         </div>
         <p className="text-sm text-gray-500 text-center pb-3">
@@ -395,6 +410,9 @@ export default function WinterPlanCalendar() {
             Pulsa en los días marcados para ver y elegir tus turnos.
             <br />
             Confirma todos tus turnos a la vez en el botón final.
+          </p>
+          <p className="text-gray-500 text-xs mt-3 leading-relaxed">
+            Los turnos mostrados coinciden con tu disponibilidad. Si quieres ver más turnos, puedes añadir más disponibilidad.
           </p>
         </div>
 
@@ -428,6 +446,8 @@ export default function WinterPlanCalendar() {
           onDayClick={handleDayClick}
           rejectedSlots={rejectedSlots}
           rejectedShiftIds={rejectedShiftIds}
+          availability={availability}
+          shiftClaims={shiftClaims}
         />
 
         {/* Plan completado button - fixed at bottom */}

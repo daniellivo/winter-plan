@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import type { DayShifts } from '../../types/winterPlan'
-import ShiftChip, { LockedDayIndicator } from './ShiftChip'
+import type { AvailabilitySlot, ShiftClaim } from '../../api/winterPlan'
+import ShiftChip, { LockedDayIndicator, AvailabilityIndicator } from './ShiftChip'
 
 interface CalendarProps {
   year: number
@@ -9,6 +10,8 @@ interface CalendarProps {
   onDayClick: (date: string, shifts: DayShifts['shifts']) => void
   rejectedSlots?: string[] // Array of "YYYY-MM-DD-TM" format strings
   rejectedShiftIds?: string[] // Array of individually rejected shift IDs
+  availability?: AvailabilitySlot[] // Professional's availability slots
+  shiftClaims?: ShiftClaim[] // Existing shift claims (Approved/Pending)
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
@@ -20,7 +23,7 @@ interface ShiftTypeGroup {
   isRejected: boolean // All shifts in this slot were rejected
 }
 
-export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [], rejectedShiftIds = [] }: CalendarProps) {
+export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [], rejectedShiftIds = [], availability = [], shiftClaims = [] }: CalendarProps) {
   const calendarGrid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
@@ -55,15 +58,64 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
+  // Helper function to map shiftTimeInDay to label
+  const mapTimeInDayToLabel = (timeInDay: string): string => {
+    switch (timeInDay.toUpperCase()) {
+      case 'MORNING_SHIFT':
+      case 'DAY_SHIFT':
+        return 'TM'
+      case 'AFTERNOON_SHIFT':
+      case 'EVENING_SHIFT':
+        return 'TT'
+      case 'NIGHT_SHIFT':
+        return 'TN'
+      default:
+        return 'TM'
+    }
+  }
+
+  // Helper function to extract date from UTC string
+  const extractDateFromUtc = (utcString: string): string => {
+    return new Date(utcString).toISOString().split('T')[0]
+  }
+
   // Analyze shifts for a day and return display info
   const analyzeDay = (dateStr: string, shifts: DayShifts['shifts']) => {
     const groups: ShiftTypeGroup[] = []
-    const labelsMap = new Map<string, { hasConfirmed: boolean; isLocked: boolean; isRejected: boolean; allShiftsRejected: boolean }>()
+    const labelsMap = new Map<string, { hasConfirmed: boolean; isLocked: boolean; isRejected: boolean; allShiftsRejected: boolean; hasAvailability: boolean }>()
+    
+    // Check shiftClaims for Approved/Pending shifts on this date
+    const dateShiftClaims = shiftClaims.filter(claim => {
+      const claimDate = extractDateFromUtc(claim.startTimeUtc)
+      return claimDate === dateStr && (claim.status.toUpperCase() === 'APPROVED' || claim.status.toUpperCase() === 'PENDING_APPROVAL')
+    })
+    
+    // Mark locked slots from shiftClaims
+    dateShiftClaims.forEach(claim => {
+      const label = mapTimeInDayToLabel(claim.shiftTimeInDay)
+      const current = labelsMap.get(label) || { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false, hasAvailability: false }
+      current.isLocked = true
+      labelsMap.set(label, current)
+    })
+    
+    // Check availability for this date
+    const dateAvailability = availability.find(a => a.date === dateStr)
+    if (dateAvailability) {
+      if (dateAvailability.day && !labelsMap.has('TM')) {
+        labelsMap.set('TM', { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false, hasAvailability: true })
+      }
+      if (dateAvailability.evening && !labelsMap.has('TT')) {
+        labelsMap.set('TT', { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false, hasAvailability: true })
+      }
+      if (dateAvailability.night && !labelsMap.has('TN')) {
+        labelsMap.set('TN', { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false, hasAvailability: true })
+      }
+    }
     
     // First, check which slots have shifts and track individual rejections
     const shiftsByLabel = new Map<string, typeof shifts>()
     shifts.forEach(shift => {
-      const current = labelsMap.get(shift.label) || { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false }
+      const current = labelsMap.get(shift.label) || { hasConfirmed: false, isLocked: false, isRejected: false, allShiftsRejected: false, hasAvailability: false }
       
       if (shift.status === 'confirmed') {
         // Pre-approved shift - this slot is locked
@@ -122,12 +174,36 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
       }
     })
 
+    // Also add availability-only slots (no shifts, no claims, but has availability)
+    // And locked slots from shiftClaims (Approved/Pending) that don't have shifts
+    labelsMap.forEach((info, label) => {
+      if (!groups.some(g => g.label === label)) {
+        if (info.hasAvailability && !info.isLocked) {
+          // Availability only, no shifts
+          groups.push({
+            label,
+            hasConfirmed: false,
+            isLocked: false,
+            isRejected: false
+          })
+        } else if (info.isLocked) {
+          // Locked from shiftClaims (Approved/Pending)
+          groups.push({
+            label,
+            hasConfirmed: false,
+            isLocked: true,
+            isRejected: false
+          })
+        }
+      }
+    })
+
     // Check if ALL shifts for this day are locked (only pre-approved, no available slots)
     const allLocked = groups.length > 0 && groups.every(g => g.isLocked)
     // Check if there are any available (non-locked, non-rejected) shifts, or rejected slots that can be re-opened
     const hasAvailableShifts = groups.some(g => !g.isLocked)
 
-    return { groups, allLocked, hasAvailableShifts }
+    return { groups, allLocked, hasAvailableShifts, labelsMap }
   }
 
   return (
@@ -151,7 +227,13 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
           const dateStr = formatDate(day)
           const shifts = getShiftsForDay(day)
           const hasShifts = shifts.length > 0
-          const { groups, allLocked, hasAvailableShifts } = analyzeDay(dateStr, shifts)
+          const { groups, allLocked, hasAvailableShifts, labelsMap } = analyzeDay(dateStr, shifts)
+          
+          // Check if there are availability-only slots (no shifts but has availability)
+          const availabilityOnlySlots = groups.filter(g => {
+            const info = labelsMap.get(g.label)
+            return info?.hasAvailability && !hasShifts && !g.isLocked && !g.isRejected
+          })
           
           // Allow click if there are available shifts OR rejected slots (to re-open them)
           const isClickable = hasShifts && hasAvailableShifts
@@ -169,7 +251,7 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
                 {day}
               </div>
               
-              <div className="flex flex-col gap-0.5 items-center">
+              <div className="flex flex-col gap-0.5 items-center w-full">
                 {allLocked ? (
                   // Show locked chips with their labels (TM, TT, TN)
                   groups.map((group) => (
@@ -178,15 +260,24 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
                 ) : (
                   <>
                     {/* Show non-rejected chips vertically */}
-                    {groups.filter(g => !g.isRejected).map((group) => (
-                      <ShiftChip 
-                        key={group.label} 
-                        label={group.label} 
-                        confirmed={group.hasConfirmed}
-                        locked={group.isLocked}
-                        rejected={false}
-                      />
-                    ))}
+                    {groups.filter(g => !g.isRejected).map((group) => {
+                      const info = labelsMap.get(group.label)
+                      // Show availability indicator if has availability but no shifts for this slot
+                      const hasShiftsForSlot = shifts.some(s => s.label === group.label)
+                      if (info?.hasAvailability && !hasShiftsForSlot && !group.isLocked && !group.hasConfirmed) {
+                        return <AvailabilityIndicator key={group.label} label={group.label} />
+                      }
+                      // Show regular shift chip
+                      return (
+                        <ShiftChip 
+                          key={group.label} 
+                          label={group.label} 
+                          confirmed={group.hasConfirmed}
+                          locked={group.isLocked}
+                          rejected={false}
+                        />
+                      )
+                    })}
                     {/* Show rejected dots horizontally */}
                     {groups.some(g => g.isRejected) && (
                       <div className="flex flex-row gap-1 items-center">

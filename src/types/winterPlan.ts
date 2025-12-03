@@ -286,3 +286,26 @@ export interface DisplayModal {
 export interface ShiftsClaimResponse {
   displayModal?: DisplayModal
 }
+
+// ============================================
+// Professional Availability API Types
+// ============================================
+
+export interface AvailabilitySlot {
+  date: string // "2025-12-01"
+  day: boolean
+  evening: boolean
+  night: boolean
+}
+
+export interface ShiftClaim {
+  claimId: string
+  shiftId: string
+  livoUnit: string
+  livoField: string
+  totalPay: number
+  startTimeUtc: string // "2025-12-01T19:04:43.785Z"
+  endTimeUtc: string
+  shiftTimeInDay: string // "MORNING_SHIFT", "AFTERNOON_SHIFT", "NIGHT_SHIFT"
+  status: string
+}

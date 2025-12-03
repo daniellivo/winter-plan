@@ -17,14 +17,14 @@ const _PROXY_SERVER_URL = import.meta.env.VITE_PROXY_URL || 'http://localhost:30
 // New Availability API Types
 // ============================================
 
-interface AvailabilitySlot {
+export interface AvailabilitySlot {
   date: string // "2025-12-01"
   day: boolean
   evening: boolean
   night: boolean
 }
 
-interface ShiftClaim {
+export interface ShiftClaim {
   claimId: string
   shiftId: string
   livoUnit: string
@@ -36,7 +36,7 @@ interface ShiftClaim {
   status: string
 }
 
-interface AvailabilityApiResponse {
+export interface AvailabilityApiResponse {
   availability: AvailabilitySlot[]
   shiftClaims: ShiftClaim[]
 }
@@ -1153,6 +1153,55 @@ export function transformAvailableShiftsToWinterPlan(
 
 // Re-export types for use in components
 export type { AvailableShiftsResponse, AvailableShift, AvailableShiftsByDate, ShiftsClaimResponse }
+
+
+/**
+ * Fetch professional availability and shift claims from the API
+ * Returns raw data without transformation
+ * Fixed date range: Dec 2025 - Jan 2026
+ * 
+ * @param userId - Encoded professional ID from URL (required)
+ * @returns Raw availability and shiftClaims data
+ */
+export async function fetchProfessionalAvailability(userId: string): Promise<AvailabilityApiResponse> {
+  const params = new URLSearchParams({ 
+    userId,
+    startDate: WINTER_PLAN_START_DATE,
+    endDate: WINTER_PLAN_END_DATE
+  })
+  
+  const url = `${AVAILABILITY_API_BASE_URL}/professional/winter-plan/availability?${params}`
+  
+  console.log('🌐 Fetching professional availability from:', url)
+  console.log('📋 Using userId (encodedId):', userId)
+  
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details')
+      console.error('❌ API Error:', response.status, response.statusText, errorText)
+      throw new Error(`Failed to fetch professional availability: ${response.status} ${response.statusText}`)
+    }
+    
+    const data: AvailabilityApiResponse = await response.json()
+    
+    console.log('📥 Professional availability API response:', {
+      availabilityCount: data.availability?.length || 0,
+      shiftClaimsCount: data.shiftClaims?.length || 0
+    })
+    
+    return data
+  } catch (error) {
+    console.error('❌ Fetch professional availability error:', error)
+    throw error
+  }
+}
 
 /**
  * Fetch availability from the new API

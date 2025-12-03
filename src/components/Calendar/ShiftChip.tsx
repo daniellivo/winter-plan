@@ -19,12 +19,33 @@ const getSlotColor = (label: string): string => {
 
 // Colors based on shift type and confirmation status
 const getChipStyles = (label: string, confirmed: boolean, locked: boolean) => {
-  // Locked state - grey with lock icon
+  // Locked state - full color with lock icon (for Approved/Pending shiftClaims)
   if (locked) {
-    return {
-      bg: 'bg-gray-200',
-      text: 'text-gray-500',
-      Icon: IconLock
+    switch (label) {
+      case 'TM':
+        return {
+          bg: 'bg-[#FFA538]',
+          text: 'text-white',
+          Icon: IconSun
+        }
+      case 'TT':
+        return {
+          bg: 'bg-[#FE85C6]',
+          text: 'text-white',
+          Icon: IconSunset2
+        }
+      case 'TN':
+        return {
+          bg: 'bg-[#12A3B9]',
+          text: 'text-white',
+          Icon: IconMoon
+        }
+      default:
+        return {
+          bg: 'bg-gray-400',
+          text: 'text-white',
+          Icon: IconSun
+        }
     }
   }
   
@@ -75,19 +96,61 @@ export default function ShiftChip({ label, confirmed = false, locked = false, re
       rounded-md text-xs font-medium
       ${styles.bg} ${styles.text}
     `}>
-      <Icon size={12} />
+      {!locked && <Icon size={12} />}
+      {locked && <IconLock size={12} />}
       <span>{label}</span>
     </div>
   )
 }
 
+// Component for showing professional availability (gray background with icon only)
+export function AvailabilityIndicator({ label }: { label: string }) {
+  let Icon = IconSun
+  switch (label) {
+    case 'TM':
+      Icon = IconSun
+      break
+    case 'TT':
+      Icon = IconSunset2
+      break
+    case 'TN':
+      Icon = IconMoon
+      break
+  }
+  
+  return (
+    <div className="inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500 w-full">
+      <Icon size={12} />
+    </div>
+  )
+}
+
 // Component for when entire day is locked (only has pre-approved shifts)
-// Shows the slot label (TM/TT/TN) with a lock icon
+// Shows the slot label (TM/TT/TN) with a lock icon and full color
 export function LockedDayIndicator({ label }: { label?: string }) {
   if (label) {
-    // Show locked chip with label
+    // Get the full color based on label (same as locked ShiftChip)
+    let bgColor = 'bg-gray-200'
+    let textColor = 'text-gray-500'
+    
+    switch (label) {
+      case 'TM':
+        bgColor = 'bg-[#FFA538]'
+        textColor = 'text-white'
+        break
+      case 'TT':
+        bgColor = 'bg-[#FE85C6]'
+        textColor = 'text-white'
+        break
+      case 'TN':
+        bgColor = 'bg-[#12A3B9]'
+        textColor = 'text-white'
+        break
+    }
+    
+    // Show locked chip with label and lock icon only (no turn icon)
     return (
-      <div className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500">
+      <div className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-md text-xs font-medium ${bgColor} ${textColor}`}>
         <IconLock size={12} />
         <span>{label}</span>
       </div>
