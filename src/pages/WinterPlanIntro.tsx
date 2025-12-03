@@ -44,7 +44,13 @@ export default function WinterPlanIntro() {
         <div className="space-y-6 mb-8">
           <div className="text-center">
             <h3 className="font-bold text-gray-900 mb-1">1. Marca tus días libres</h3>
-            <p className="text-sm text-gray-600">Dinos cuándo puedes trabajar en diciembre y enero</p>
+            <p className="text-sm text-gray-600 mb-4">Dinos cuándo puedes trabajar en diciembre y enero</p>
+            <button
+              onClick={handlePreparePlan}
+              className="w-full py-3 px-4 rounded-full bg-white border-2 border-[#2cbeff] text-[#2cbeff] font-semibold text-base transition-all duration-200 active:scale-98 hover:bg-[#2cbeff]/5"
+            >
+              Añadir mi Disponibilidad
+            </button>
           </div>
           
           <div className="text-center">

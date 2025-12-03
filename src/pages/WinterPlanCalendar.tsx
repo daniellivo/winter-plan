@@ -393,7 +393,7 @@ export default function WinterPlanCalendar() {
           </h1>
           <button 
             onClick={() => {
-              const phoneNumber = '34930491425'
+              const phoneNumber = '+34930491425'
               const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
               
               if (isMobile) {
