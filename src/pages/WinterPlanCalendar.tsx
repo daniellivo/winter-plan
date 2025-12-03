@@ -3,6 +3,7 @@ import { IconHeadset, IconCheck, IconChevronLeft } from '@tabler/icons-react'
 import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
+import AvailabilityPopup from '../components/AvailabilityPopup'
 import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds, fetchProfessionalAvailability } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
@@ -39,6 +40,10 @@ export default function WinterPlanCalendar() {
   // Availability and shift claims state
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([])
   const [shiftClaims, setShiftClaims] = useState<ShiftClaim[]>([])
+
+  // Popup state
+  const [showAvailabilityPopup, setShowAvailabilityPopup] = useState(false)
+  const [availableDaysCount, setAvailableDaysCount] = useState(0)
 
   // Firebase real-time listener
   const { 
@@ -112,6 +117,39 @@ export default function WinterPlanCalendar() {
       setLoading(false)
     }
   }, [firebasePlan, applyClaimedShiftsToPlan])
+
+  // Check if popup should be shown based on availability count
+  useEffect(() => {
+    if (availability.length === 0) return
+    
+    // Count unique days with availability (where day, evening, or night is true)
+    const availableDays = new Set<string>()
+    availability.forEach(slot => {
+      if (slot.day || slot.evening || slot.night) {
+        availableDays.add(slot.date)
+      }
+    })
+    
+    const count = availableDays.size
+    setAvailableDaysCount(count)
+    
+    // Check if popup was dismissed in this session
+    const popupDismissed = sessionStorage.getItem('availability_popup_dismissed') === 'true'
+    
+    // Show popup if less than 10 days available and not dismissed
+    if (count < 10 && !popupDismissed) {
+      setShowAvailabilityPopup(true)
+    }
+  }, [availability])
+
+  const handleClosePopup = () => {
+    setShowAvailabilityPopup(false)
+    sessionStorage.setItem('availability_popup_dismissed', 'true')
+  }
+
+  const handleAddAvailability = () => {
+    window.location.href = 'https://livo-385512.web.app/app/availability/update'
+  }
   
   // Reload rejected shift IDs from storage whenever component renders
   // This ensures we pick up any changes made in ShiftDetails page
@@ -380,7 +418,7 @@ export default function WinterPlanCalendar() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white">
-        <div className="flex items-center justify-between h-14 px-4">
+        <div className="flex items-center justify-between h-12 px-4">
           <button 
             onClick={() => navigate('/')}
             className="flex items-center gap-1 text-[#2cbeff] font-medium text-sm hover:opacity-80 transition-opacity"
@@ -389,7 +427,7 @@ export default function WinterPlanCalendar() {
             <span>Atrás</span>
           </button>
           <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-            🎄 Aquí está tu Plan 🎄
+            🎄 Tu Plan de Turnos 🎄
           </h1>
           <button 
             onClick={() => {
@@ -410,21 +448,19 @@ export default function WinterPlanCalendar() {
             <IconHeadset size={20} />
           </button>
         </div>
-        <p className="text-sm text-gray-500 text-center pb-3">
-          Turnos en Diciembre y Enero
-        </p>
       </header>
 
       <div className="px-4">
         {/* Intro text */}
         <div className="text-center py-4">
-          <p className="text-gray-600 text-sm leading-relaxed">
-            Pulsa en los días marcados para ver y elegir tus turnos.
-            <br />
-            Confirma todos tus turnos a la vez en el botón final.
+          <p className="text-gray-600 text-sm leading-relaxed mb-2">
+            Los días marcados coinciden con tu disponibilidad.
           </p>
-          <p className="text-gray-500 text-xs mt-3 leading-relaxed">
-            Los turnos mostrados coinciden con tu disponibilidad. Si quieres ver más turnos, puedes añadir más disponibilidad.
+          <p className="text-gray-600 text-sm leading-relaxed mb-2">
+            Pulsa en cada fecha para ver y elegir tus turnos.
+          </p>
+          <p className="text-gray-600 text-sm leading-relaxed">
+            Confírmalos a la vez en el botón final.
           </p>
         </div>
 
@@ -535,6 +571,15 @@ export default function WinterPlanCalendar() {
             const key = `${date}-${label}`
             setRejectedSlots(prev => prev.filter(k => k !== key))
           }}
+        />
+      )}
+
+      {/* Availability popup */}
+      {showAvailabilityPopup && (
+        <AvailabilityPopup
+          onClose={handleClosePopup}
+          onAddAvailability={handleAddAvailability}
+          availableDaysCount={availableDaysCount}
         />
       )}
     </div>

@@ -15,7 +15,7 @@ export default function WinterPlanIntro() {
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white">
-        <div className="flex items-center justify-between h-14 px-4">
+        <div className="flex items-center justify-between h-12 px-4">
           <div className="w-10" />
           <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
             🎄 Planifica tu Invierno 🎄
@@ -27,48 +27,35 @@ export default function WinterPlanIntro() {
             <IconInfoCircle size={20} />
           </button>
         </div>
-        <p className="text-sm text-gray-500 text-center pb-3">
-          Turnos en Diciembre y Enero
-        </p>
       </header>
 
       <div className="px-5 pb-8">
-        {/* Intro text */}
+        {/* Subtitle */}
         <div className="text-center py-6">
           <p className="text-gray-600 text-sm leading-relaxed">
-            Este invierno en Livo te preparamos un plan de turnos personalizado que encaje contigo.
+            Te preparamos tu plan de turnos personalizado para Diciembre y Enero
           </p>
         </div>
 
-        {/* Steps */}
-        <div className="space-y-6 mb-8">
-          <div className="text-center">
+        {/* Step 1 */}
+        <div className="mb-8">
+          <div className="text-center mb-4">
             <h3 className="font-bold text-gray-900 mb-1">1. Marca tus días libres</h3>
-            <p className="text-sm text-gray-600 mb-4">Dinos cuándo puedes trabajar en diciembre y enero</p>
-            <button
-              onClick={handlePreparePlan}
-              className="w-full py-3 px-4 rounded-full bg-white border-2 border-[#2cbeff] text-[#2cbeff] font-semibold text-base transition-all duration-200 active:scale-98 hover:bg-[#2cbeff]/5"
-            >
-              Añadir mi Disponibilidad
-            </button>
+            <p className="text-sm text-gray-600">para ver los turnos disponibles para ti</p>
           </div>
-          
-          <div className="text-center">
-            <h3 className="font-bold text-gray-900 mb-1">2. Te preparamos tu plan</h3>
-            <p className="text-sm text-gray-600">Visualiza tu propuesta de turnos</p>
-          </div>
-          
-          <div className="text-center">
-            <h3 className="font-bold text-gray-900 mb-1">3. Confirma y listo</h3>
-            <p className="text-sm text-gray-600">
-              Asegura los mejores turnos y<br />
-              sácale el máximo partido a las fiestas
-            </p>
-          </div>
+          <button
+            onClick={handlePreparePlan}
+            className="w-full py-3 px-4 rounded-full bg-white border-2 border-[#2cbeff] text-[#2cbeff] font-semibold text-base transition-all duration-200 active:scale-98 hover:bg-[#2cbeff]/5"
+          >
+            Añadir mi disponibilidad
+          </button>
         </div>
 
-        {/* Primary CTA - Ver plan */}
+        {/* Step 2 */}
         <div className="mb-8">
+          <div className="text-center mb-4">
+            <h3 className="font-bold text-gray-900 mb-2">2. Visualiza y confirma tu plan de turnos</h3>
+          </div>
           <PrimaryButton onClick={() => navigate('/calendar')}>
             Ver mi plan
           </PrimaryButton>
