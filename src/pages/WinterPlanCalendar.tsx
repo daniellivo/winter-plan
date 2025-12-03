@@ -392,7 +392,19 @@ export default function WinterPlanCalendar() {
             🎄 Aquí está tu Plan 🎄
           </h1>
           <button 
-            onClick={() => window.open('https://wa.me/34930491425', '_blank')}
+            onClick={() => {
+              const phoneNumber = '34930491425'
+              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+              
+              if (isMobile) {
+                // On mobile: use window.location.href to open WhatsApp app natively
+                // This will open the app if installed, or WhatsApp Web if not
+                window.location.href = `https://wa.me/${phoneNumber}`
+              } else {
+                // Desktop: open WhatsApp Web in new tab
+                window.open(`https://wa.me/${phoneNumber}`, '_blank')
+              }
+            }}
             className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
           >
             <IconHeadset size={20} />
