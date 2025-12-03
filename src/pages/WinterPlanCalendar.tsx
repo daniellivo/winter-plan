@@ -120,9 +120,11 @@ export default function WinterPlanCalendar() {
 
   // Check if popup should be shown based on availability count
   useEffect(() => {
-    if (availability.length === 0) return
+    // Don't show popup while still loading
+    if (loading || firebaseLoading) return
     
     // Count unique days with availability (where day, evening, or night is true)
+    // If availability array is empty, count will be 0
     const availableDays = new Set<string>()
     availability.forEach(slot => {
       if (slot.day || slot.evening || slot.night) {
@@ -136,11 +138,11 @@ export default function WinterPlanCalendar() {
     // Check if popup was dismissed in this session
     const popupDismissed = sessionStorage.getItem('availability_popup_dismissed') === 'true'
     
-    // Show popup if less than 10 days available and not dismissed
+    // Show popup if less than 10 days available (including 0) and not dismissed
     if (count < 10 && !popupDismissed) {
       setShowAvailabilityPopup(true)
     }
-  }, [availability])
+  }, [availability, loading, firebaseLoading])
 
   const handleClosePopup = () => {
     setShowAvailabilityPopup(false)
