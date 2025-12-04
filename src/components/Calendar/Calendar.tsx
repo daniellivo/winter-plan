@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { IconSun, IconSunset2, IconMoon } from '@tabler/icons-react'
 import type { DayShifts } from '../../types/winterPlan'
 import type { AvailabilitySlot, ShiftClaim } from '../../api/winterPlan'
 import ShiftChip, { LockedDayIndicator, AvailabilityIndicator } from './ShiftChip'
@@ -12,6 +13,7 @@ interface CalendarProps {
   rejectedShiftIds?: string[] // Array of individually rejected shift IDs
   availability?: AvailabilitySlot[] // Professional's availability slots
   shiftClaims?: ShiftClaim[] // Existing shift claims (Approved/Pending)
+  pendingSlotsByDate?: Map<string, Set<string>> // Pending availability slots by date
 }
 
 const WEEKDAYS = ['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom']
@@ -23,7 +25,7 @@ interface ShiftTypeGroup {
   isRejected: boolean // All shifts in this slot were rejected
 }
 
-export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [], rejectedShiftIds = [], availability = [], shiftClaims = [] }: CalendarProps) {
+export default function Calendar({ year, month, days, onDayClick, rejectedSlots = [], rejectedShiftIds = [], availability = [], shiftClaims = [], pendingSlotsByDate }: CalendarProps) {
   const calendarGrid = useMemo(() => {
     const firstDay = new Date(year, month, 1)
     const lastDay = new Date(year, month + 1, 0)
@@ -235,8 +237,10 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
             return info?.hasAvailability && !hasShifts && !g.isLocked && !g.isRejected
           })
           
-          // Allow click if there are available shifts OR rejected slots (to re-open them)
-          const isClickable = hasShifts && hasAvailableShifts
+          // Check if this date has pending slots
+          const pendingSlots = pendingSlotsByDate?.get(dateStr)
+          const isEditingMode = pendingSlotsByDate !== undefined
+          const isClickable = isEditingMode || (hasShifts && hasAvailableShifts)
           
           return (
             <div
@@ -245,6 +249,7 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
               className={`
                 min-h-[80px] py-1 px-0.5 border-t border-gray-100
                 ${isClickable ? 'cursor-pointer hover:bg-gray-50' : ''}
+                ${pendingSlots !== undefined ? 'bg-gray-100' : ''}
               `}
             >
               <div className="text-center text-sm text-gray-700 mb-1">
@@ -252,7 +257,32 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
               </div>
               
               <div className="flex flex-col gap-0.5 items-center w-full">
-                {allLocked ? (
+                {/* Show pending slots if in editing mode */}
+                {pendingSlots !== undefined && pendingSlots.size > 0 ? (
+                  // Show pending slots as gray chips with icons
+                  Array.from(pendingSlots).map(slot => {
+                    let Icon = IconSun
+                    switch (slot) {
+                      case 'DAY':
+                        Icon = IconSun
+                        break
+                      case 'EVENING':
+                        Icon = IconSunset2
+                        break
+                      case 'NIGHT':
+                        Icon = IconMoon
+                        break
+                    }
+                    return (
+                      <div key={slot} className="inline-flex items-center justify-center gap-0.5 px-1.5 py-0.5 rounded-md text-xs font-medium bg-gray-200 text-gray-500 w-full">
+                        <Icon size={12} />
+                      </div>
+                    )
+                  })
+                ) : pendingSlots !== undefined && pendingSlots.size === 0 ? (
+                  // Date marked for deletion - show nothing
+                  null
+                ) : allLocked ? (
                   // Show locked chips with their labels (TM, TT, TN)
                   groups.map((group) => (
                     <LockedDayIndicator key={group.label} label={group.label} />

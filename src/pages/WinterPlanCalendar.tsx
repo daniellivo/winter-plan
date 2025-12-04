@@ -4,7 +4,8 @@ import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
 import AvailabilityPopup from '../components/AvailabilityPopup'
-import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds, fetchProfessionalAvailability } from '../api/winterPlan'
+import AvailabilitySelector from '../components/AvailabilitySelector'
+import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds, fetchProfessionalAvailability, updateAvailability, type AvailabilityUpdate } from '../api/winterPlan'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -44,6 +45,12 @@ export default function WinterPlanCalendar() {
   // Popup state
   const [showAvailabilityPopup, setShowAvailabilityPopup] = useState(false)
   const [availableDaysCount, setAvailableDaysCount] = useState(0)
+
+  // Availability editor state
+  const [showAvailabilityEditor, setShowAvailabilityEditor] = useState(false)
+  const [activeSlot, setActiveSlot] = useState<'all' | 'day' | 'evening' | 'night' | 'delete' | null>(null)
+  const [pendingSlotsByDate, setPendingSlotsByDate] = useState<Map<string, Set<string>>>(new Map())
+  const [isSavingAvailability, setIsSavingAvailability] = useState(false)
 
   // Firebase real-time listener
   const { 
@@ -150,7 +157,177 @@ export default function WinterPlanCalendar() {
   }
 
   const handleAddAvailability = () => {
-    window.location.href = 'https://livo-385512.web.app/app/availability/update'
+    // Close the availability popup if it's open
+    setShowAvailabilityPopup(false)
+    sessionStorage.setItem('availability_popup_dismissed', 'true')
+    // Open the availability editor
+    setShowAvailabilityEditor(true)
+    setActiveSlot(null)
+    setPendingSlotsByDate(new Map())
+  }
+
+  const handleCancelAvailabilityEditor = () => {
+    setShowAvailabilityEditor(false)
+    setActiveSlot(null)
+    setPendingSlotsByDate(new Map())
+  }
+
+  const handleDayClick = (date: string, shifts: Shift[]) => {
+    // If in availability editor mode and a slot is active, apply slot to date
+    if (showAvailabilityEditor && activeSlot) {
+      setPendingSlotsByDate(prev => {
+        const newMap = new Map(prev)
+        
+        if (activeSlot === 'delete') {
+          // Remove all slots for this date
+          newMap.set(date, new Set())
+        } else {
+          // Map slot types to API slot strings
+          const slotMap: Record<string, string[]> = {
+            'all': ['DAY', 'EVENING', 'NIGHT'],
+            'day': ['DAY'],
+            'evening': ['EVENING'],
+            'night': ['NIGHT']
+          }
+          
+          const slotsToApply = slotMap[activeSlot]
+          // Overwrite existing slots for this date with the new ones
+          newMap.set(date, new Set(slotsToApply))
+        }
+        
+        return newMap
+      })
+      return
+    }
+
+    // Normal mode: navigate to shift details
+    if (shifts.length === 1) {
+      navigate(`/shifts/${shifts[0].id}`)
+    } else if (shifts.length > 1) {
+      setSelectedShifts(shifts)
+      setSelectedDate(date)
+    }
+  }
+
+  const handleSlotSelect = (slotType: 'all' | 'day' | 'evening' | 'night' | 'delete') => {
+    setActiveSlot(slotType)
+  }
+
+  const handleSaveAvailability = async () => {
+    if (isSavingAvailability) return
+
+    // If no changes, just close the editor
+    if (pendingSlotsByDate.size === 0) {
+      handleCancelAvailabilityEditor()
+      return
+    }
+
+    try {
+      setIsSavingAvailability(true)
+
+      // Create a map of current availability for quick lookup
+      const currentAvailabilityMap = new Map<string, { day: boolean, evening: boolean, night: boolean }>()
+      availability.forEach(slot => {
+        currentAvailabilityMap.set(slot.date, {
+          day: slot.day,
+          evening: slot.evening,
+          night: slot.night
+        })
+      })
+
+      // Build addedSlots and removedSlots by comparing pending with current
+      const addedSlotsMap = new Map<string, Set<string>>()
+      const removedSlotsMap = new Map<string, Set<string>>()
+
+      pendingSlotsByDate.forEach((pendingSlots, date) => {
+        const current = currentAvailabilityMap.get(date) || { day: false, evening: false, night: false }
+        const currentSlots = new Set<string>()
+        if (current.day) currentSlots.add('DAY')
+        if (current.evening) currentSlots.add('EVENING')
+        if (current.night) currentSlots.add('NIGHT')
+
+        // If pendingSlots is empty, remove all current slots
+        if (pendingSlots.size === 0) {
+          if (currentSlots.size > 0) {
+            removedSlotsMap.set(date, currentSlots)
+          }
+        } else {
+          // Find slots to add (in pending but not in current)
+          const toAdd = new Set<string>()
+          pendingSlots.forEach(slot => {
+            if (!currentSlots.has(slot)) {
+              toAdd.add(slot)
+            }
+          })
+          if (toAdd.size > 0) {
+            addedSlotsMap.set(date, toAdd)
+          }
+
+          // Find slots to remove (in current but not in pending)
+          const toRemove = new Set<string>()
+          currentSlots.forEach(slot => {
+            if (!pendingSlots.has(slot)) {
+              toRemove.add(slot)
+            }
+          })
+          if (toRemove.size > 0) {
+            removedSlotsMap.set(date, toRemove)
+          }
+        }
+      })
+
+      // Convert maps to arrays - always include both arrays (can be empty)
+      const addedSlots = Array.from(addedSlotsMap.entries())
+        .map(([date, slots]) => ({
+          date,
+          slots: Array.from(slots)
+        }))
+
+      const removedSlots = Array.from(removedSlotsMap.entries())
+        .map(([date, slots]) => ({
+          date,
+          slots: Array.from(slots)
+        }))
+
+      // Always make API call with both arrays (can be empty)
+      // Format matches API spec: both arrays are always present, even if empty
+      const payload: AvailabilityUpdate = {
+        professionalId,
+        addedSlots: addedSlots.length > 0 ? addedSlots : [],
+        removedSlots: removedSlots.length > 0 ? removedSlots : []
+      }
+
+      await updateAvailability(payload).catch(() => {
+        // Silently ignore errors as per spec
+      })
+      
+      // Reload availability data and available shifts
+      try {
+        const [availabilityData, availableShiftsData] = await Promise.all([
+          fetchProfessionalAvailability(professionalId).catch(() => ({ availability: [], shiftClaims: [] })),
+          getWinterPlan(professionalId).catch(() => null)
+        ])
+        
+        setAvailability(availabilityData.availability || [])
+        setShiftClaims(availabilityData.shiftClaims || [])
+        
+        if (availableShiftsData) {
+          const planWithClaimed = applyClaimedShiftsToPlan(availableShiftsData)
+          setPlan(planWithClaimed)
+        }
+      } catch {
+        // Silently ignore errors as per spec
+      }
+
+      // Reset editor state (always close, even on error)
+      handleCancelAvailabilityEditor()
+    } catch (error) {
+      // Silently ignore errors as per spec
+      console.error('Error saving availability:', error)
+      handleCancelAvailabilityEditor()
+    } finally {
+      setIsSavingAvailability(false)
+    }
   }
   
   // Reload rejected shift IDs from storage whenever component renders
@@ -174,15 +351,6 @@ export default function WinterPlanCalendar() {
       setCurrentYear(currentYear + 1)
     } else {
       setCurrentMonth(currentMonth + 1)
-    }
-  }
-
-  const handleDayClick = (date: string, shifts: Shift[]) => {
-    if (shifts.length === 1) {
-      navigate(`/shifts/${shifts[0].id}`)
-    } else if (shifts.length > 1) {
-      setSelectedShifts(shifts)
-      setSelectedDate(date)
     }
   }
 
@@ -469,9 +637,7 @@ export default function WinterPlanCalendar() {
         {/* Add availability button */}
         <div className="pb-4">
           <button
-            onClick={() => {
-              window.location.href = 'https://livo-385512.web.app/app/availability/update'
-            }}
+            onClick={handleAddAvailability}
             className="w-full py-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
           >
             Añadir más disponibilidad
@@ -498,9 +664,21 @@ export default function WinterPlanCalendar() {
           rejectedShiftIds={rejectedShiftIds}
           availability={availability}
           shiftClaims={shiftClaims}
+          pendingSlotsByDate={showAvailabilityEditor ? pendingSlotsByDate : undefined}
         />
 
+        {/* Availability Selector */}
+        {showAvailabilityEditor && (
+          <AvailabilitySelector
+            activeSlot={activeSlot}
+            onSlotSelect={handleSlotSelect}
+            onSave={handleSaveAvailability}
+            isSaving={isSavingAvailability}
+          />
+        )}
+
         {/* Plan completado button - fixed at bottom */}
+        {!showAvailabilityEditor && (
         <div className="sticky bottom-0 left-0 right-0 bg-gradient-to-t from-white via-white to-transparent pt-6 pb-6 mt-8">
           {showSuccessMessage ? (
             <div className="bg-green-50 border border-green-200 rounded-2xl p-4 mb-4 text-center">
@@ -554,6 +732,7 @@ export default function WinterPlanCalendar() {
             </>
           )}
         </div>
+        )}
       </div>
 
       {/* Shift selection modal */}

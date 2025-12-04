@@ -1831,3 +1831,53 @@ export async function getShiftsFromFirebase(
 export function isFirebaseAvailable(): boolean {
   return isFirebaseConfigured() && db !== null
 }
+
+// ============================================
+// Update Availability API Function
+// ============================================
+
+export interface AvailabilityUpdate {
+  professionalId: string
+  addedSlots: { date: string; slots: string[] }[]
+  removedSlots: { date: string; slots: string[] }[]
+}
+
+/**
+ * Update professional availability
+ * POST /professional/winter-plan/availability
+ * 
+ * @param data - Availability update data with addedSlots and removedSlots
+ * @returns Success status
+ */
+export async function updateAvailability(data: AvailabilityUpdate): Promise<{ status: string }> {
+  const url = `${AVAILABILITY_API_BASE_URL}/professional/winter-plan/availability`
+  
+  console.log('📤 Updating availability:', url)
+  console.log('📋 Payload:', data)
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify(data)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'No error details')
+      console.error('❌ API Error:', response.status, response.statusText, errorText)
+      throw new Error(`Failed to update availability: ${response.status} ${response.statusText}`)
+    }
+
+    const result = await response.json().catch(() => ({ status: 'success' }))
+    
+    console.log('✅ Availability updated successfully')
+
+    return result
+  } catch (error) {
+    console.error('❌ Failed to update availability:', error)
+    throw error
+  }
+}
