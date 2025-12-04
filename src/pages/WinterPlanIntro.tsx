@@ -40,21 +40,7 @@ export default function WinterPlanIntro() {
         {/* Step 1 */}
         <div className="mb-8">
           <div className="text-center mb-4">
-            <h3 className="font-bold text-gray-900 mb-1">1. Marca tus días libres</h3>
-            <p className="text-sm text-gray-600">para ver los turnos disponibles para ti</p>
-          </div>
-          <button
-            onClick={handlePreparePlan}
-            className="w-full py-3 px-4 rounded-full bg-white border-2 border-[#2cbeff] text-[#2cbeff] font-semibold text-base transition-all duration-200 active:scale-98 hover:bg-[#2cbeff]/5"
-          >
-            Añadir mi disponibilidad
-          </button>
-        </div>
-
-        {/* Step 2 */}
-        <div className="mb-8">
-          <div className="text-center mb-4">
-            <h3 className="font-bold text-gray-900 mb-2">2. Visualiza y confirma tu plan de turnos</h3>
+            <h3 className="font-bold text-gray-900 mb-2">1. Visualiza y confirma tu plan de turnos</h3>
           </div>
           <PrimaryButton onClick={() => navigate('/calendar')}>
             Ver mi plan
@@ -71,33 +57,6 @@ export default function WinterPlanIntro() {
             Este plan existe para que tú también puedas organizarte con tiempo, descansar y 
             aprovechar al máximo los días que decides trabajar.
           </p>
-        </div>
-
-        {/* Locked calendar section - Clickable */}
-        <div className="mb-8 -mx-5">
-          {/* Calendar with overlay */}
-          <button 
-            onClick={() => navigate('/calendar')}
-            className="relative w-full cursor-pointer active:scale-[0.99] transition-transform"
-          >
-            {/* Real calendar background */}
-            <div className="px-4">
-              <LockedCalendar year={2025} month={11} />
-            </div>
-            
-            {/* Blur + Gray overlay */}
-            <div className="absolute inset-0 backdrop-blur-[2px] bg-gray-100/80" />
-            
-            {/* Lock card on top */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="bg-gray-100 rounded-xl p-6 text-center shadow-sm">
-                <h4 className="font-semibold text-gray-800 mb-2">Tus turnos de Invierno</h4>
-                <p className="text-[#2cbeff] font-semibold text-sm">
-                  Ver mi plan
-                </p>
-              </div>
-            </div>
-          </button>
         </div>
 
         {/* Bottom CTA */}

@@ -634,14 +634,23 @@ export default function WinterPlanCalendar() {
           </p>
         </div>
 
-        {/* Add availability button */}
+        {/* Add availability button or Availability Selector */}
         <div className="pb-4">
-          <button
-            onClick={handleAddAvailability}
-            className="w-full py-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
-          >
-            Añadir más disponibilidad
-          </button>
+          {showAvailabilityEditor ? (
+            <AvailabilitySelector
+              activeSlot={activeSlot}
+              onSlotSelect={handleSlotSelect}
+              onSave={handleSaveAvailability}
+              isSaving={isSavingAvailability}
+            />
+          ) : (
+            <button
+              onClick={handleAddAvailability}
+              className="w-full py-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
+            >
+              Añadir más disponibilidad
+            </button>
+          )}
         </div>
 
         {/* Month selector */}
@@ -667,14 +676,24 @@ export default function WinterPlanCalendar() {
           pendingSlotsByDate={showAvailabilityEditor ? pendingSlotsByDate : undefined}
         />
 
-        {/* Availability Selector */}
+        {/* Save button below calendar when editing availability */}
         {showAvailabilityEditor && (
-          <AvailabilitySelector
-            activeSlot={activeSlot}
-            onSlotSelect={handleSlotSelect}
-            onSave={handleSaveAvailability}
-            isSaving={isSavingAvailability}
-          />
+          <div className="mt-6 px-6 pb-4">
+            <button
+              onClick={handleSaveAvailability}
+              disabled={isSavingAvailability}
+              className={`
+                w-full py-4 rounded-full font-semibold text-base text-white
+                transition-all duration-200
+                ${isSavingAvailability
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-[#2cbeff] hover:bg-[#1ea8e0] active:scale-98'
+                }
+              `}
+            >
+              {isSavingAvailability ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
         )}
 
         {/* Plan completado button - fixed at bottom */}

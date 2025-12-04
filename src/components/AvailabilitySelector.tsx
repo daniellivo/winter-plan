@@ -15,7 +15,7 @@ export default function AvailabilitySelector({
 }: AvailabilitySelectorProps) {
 
   return (
-    <div className="mt-6 pb-4">
+    <div className="pb-4 px-6">
       {/* Title */}
       <h2 className="text-center text-gray-900 font-semibold mb-4">
         Añade disponibilidad
