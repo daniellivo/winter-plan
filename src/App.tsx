@@ -12,6 +12,9 @@ import AvailableShifts from './pages/AvailableShifts'
 // ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
 const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/b695101c-3160-4721-a4de-6feeac5b913e'
 
+// Secondary webhook for app entry tracking
+const ENTRY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/981394b5-166b-4ecd-ad13-340406449379'
+
 // Context to share URL params across all pages
 interface AppContextType {
   professionalId: string
@@ -51,6 +54,26 @@ function notifySessionStart(professionalId: string) {
   })
     .then(() => console.log('✅ Webhook sent successfully (no-cors mode)'))
     .catch((error) => console.error('❌ Failed to notify webhook:', error))
+
+  // Also send to entry webhook with encodedId
+  const entryPayload = {
+    encodedId: professionalId,
+    timestamp: new Date().toISOString()
+  }
+
+  console.log('🚀 Sending entry webhook with payload:', entryPayload)
+
+  fetch(ENTRY_WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(entryPayload),
+    keepalive: true
+  })
+    .then(() => console.log('✅ Entry webhook sent successfully'))
+    .catch((error) => console.error('❌ Failed to send entry webhook:', error))
 }
 
 const professionalIdKey = 'winter_plan_professional_id'
