@@ -13,7 +13,7 @@ import AvailableShifts from './pages/AvailableShifts'
 const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/b695101c-3160-4721-a4de-6feeac5b913e'
 
 // Secondary webhook for app entry tracking
-const ENTRY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
+const ENTRY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/981394b5-166b-4ecd-ad13-340406449379'
 
 // Context to share URL params across all pages
 interface AppContextType {
