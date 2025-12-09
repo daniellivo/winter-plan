@@ -167,27 +167,6 @@ export default function WinterPlanCalendar() {
     setShowAvailabilityEditor(true)
     setActiveSlot(null)
     setPendingSlotsByDate(new Map())
-
-    // Send webhook notification for "Add availability" button click
-    const payload = {
-      encodedId: professionalId,
-      timestamp: new Date().toISOString(),
-      action: 'add_availability_clicked'
-    }
-
-    console.log('🚀 Sending add availability webhook:', payload)
-
-    fetch(ADD_AVAILABILITY_WEBHOOK_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-      keepalive: true
-    })
-      .then(() => console.log('✅ Add availability webhook sent'))
-      .catch((error) => console.error('❌ Failed to send add availability webhook:', error))
   }
 
   const handleCancelAvailabilityEditor = () => {
@@ -324,6 +303,36 @@ export default function WinterPlanCalendar() {
       await updateAvailability(payload).catch(() => {
         // Silently ignore errors as per spec
       })
+
+      // Send webhook with modified availability data
+      const availabilityArray = Array.from(pendingSlotsByDate.entries()).map(([date, pendingSlots]) => {
+        return {
+          date,
+          TM: pendingSlots.has('DAY'),
+          TT: pendingSlots.has('EVENING'),
+          TN: pendingSlots.has('NIGHT')
+        }
+      })
+
+      const webhookPayload = {
+        encodedId: professionalId,
+        timestamp: new Date().toISOString(),
+        availability: availabilityArray
+      }
+
+      console.log('🚀 Sending save availability webhook:', webhookPayload)
+
+      fetch(ADD_AVAILABILITY_WEBHOOK_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(webhookPayload),
+        keepalive: true
+      })
+        .then(() => console.log('✅ Save availability webhook sent'))
+        .catch((error) => console.error('❌ Failed to send save availability webhook:', error))
       
       // Reload availability data and available shifts
       try {
