@@ -12,6 +12,9 @@ import { useAppNavigation } from '../hooks/useAppNavigation'
 import type { WinterPlan, Shift } from '../types/winterPlan'
 import type { AvailabilitySlot, ShiftClaim } from '../api/winterPlan'
 
+// Webhook for tracking "Add availability" button clicks
+const ADD_AVAILABILITY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/148ce6da-6856-4f88-aa55-eacf5a79f275'
+
 export default function WinterPlanCalendar() {
   const navigate = useAppNavigation()
   const { professionalId } = useAppContext()
@@ -164,6 +167,27 @@ export default function WinterPlanCalendar() {
     setShowAvailabilityEditor(true)
     setActiveSlot(null)
     setPendingSlotsByDate(new Map())
+
+    // Send webhook notification for "Add availability" button click
+    const payload = {
+      encodedId: professionalId,
+      timestamp: new Date().toISOString(),
+      action: 'add_availability_clicked'
+    }
+
+    console.log('🚀 Sending add availability webhook:', payload)
+
+    fetch(ADD_AVAILABILITY_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      keepalive: true
+    })
+      .then(() => console.log('✅ Add availability webhook sent'))
+      .catch((error) => console.error('❌ Failed to send add availability webhook:', error))
   }
 
   const handleCancelAvailabilityEditor = () => {
