@@ -9,11 +9,12 @@ import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedSh
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
+import { sendTrackingEvent } from '../api/tracking'
 import type { WinterPlan, Shift } from '../types/winterPlan'
 import type { AvailabilitySlot, ShiftClaim } from '../api/winterPlan'
 
 // Webhook for tracking "Add availability" button clicks
-const ADD_AVAILABILITY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/148ce6da-6856-4f88-aa55-eacf5a79f275'
+const ADD_AVAILABILITY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/148ce6da-6856-4f88-aa55-eacf5a79f275'
 
 export default function WinterPlanCalendar() {
   const navigate = useAppNavigation()
@@ -341,13 +342,26 @@ export default function WinterPlanCalendar() {
           getWinterPlan(professionalId).catch(() => null)
         ])
         
-        setAvailability(availabilityData.availability || [])
-        setShiftClaims(availabilityData.shiftClaims || [])
+        const updatedAvailability = availabilityData.availability || []
+        const updatedShiftClaims = availabilityData.shiftClaims || []
         
+        setAvailability(updatedAvailability)
+        setShiftClaims(updatedShiftClaims)
+        
+        let updatedPlan = null
         if (availableShiftsData) {
-          const planWithClaimed = applyClaimedShiftsToPlan(availableShiftsData)
-          setPlan(planWithClaimed)
+          updatedPlan = applyClaimedShiftsToPlan(availableShiftsData)
+          setPlan(updatedPlan)
         }
+        
+        // Send tracking event after availability is saved
+        sendTrackingEvent(
+          professionalId,
+          'save_availability',
+          updatedPlan,
+          updatedAvailability,
+          updatedShiftClaims
+        )
       } catch {
         // Silently ignore errors as per spec
       }
@@ -500,6 +514,16 @@ export default function WinterPlanCalendar() {
         setIsSubmitting(false)
         return
       }
+
+      // Send tracking event before submitting (with selected shifts)
+      sendTrackingEvent(
+        professionalId,
+        'submit_shifts',
+        plan,
+        availability,
+        shiftClaims,
+        true // include selected shifts IDs
+      )
 
       // Convert shift IDs to numbers for the API
       const shiftIds = shiftIdStrings.map(id => parseInt(id, 10)).filter(id => !isNaN(id))

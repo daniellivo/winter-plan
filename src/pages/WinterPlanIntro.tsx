@@ -2,13 +2,28 @@ import { IconInfoCircle } from '@tabler/icons-react'
 import PrimaryButton from '../components/Buttons/PrimaryButton'
 import LockedCalendar from '../components/Calendar/LockedCalendar'
 import { useAppNavigation } from '../hooks/useAppNavigation'
+import { useAppContext } from '../App'
+import { sendTrackingEvent } from '../api/tracking'
 
 export default function WinterPlanIntro() {
   const navigate = useAppNavigation()
+  const { professionalId } = useAppContext()
 
   const handlePreparePlan = () => {
     // Redirect to availability update page
     window.location.href = 'https://livo-385512.web.app/app/availability/update'
+  }
+
+  const handleViewPlanClick = () => {
+    // Send tracking event before navigating
+    sendTrackingEvent(
+      professionalId,
+      'view_plan_click',
+      null, // plan not loaded yet
+      [], // availability not loaded yet
+      [] // shiftClaims not loaded yet
+    )
+    navigate('/calendar')
   }
 
   return (
@@ -42,7 +57,7 @@ export default function WinterPlanIntro() {
           <div className="text-center mb-4">
             <h3 className="font-bold text-gray-900 mb-2">1. Visualiza y confirma tu plan de turnos</h3>
           </div>
-          <PrimaryButton onClick={() => navigate('/calendar')}>
+          <PrimaryButton onClick={handleViewPlanClick}>
             Ver mi plan
           </PrimaryButton>
         </div>

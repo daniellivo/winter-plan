@@ -7,13 +7,11 @@ import ShiftDetails from './pages/ShiftDetails'
 import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 import AvailableShifts from './pages/AvailableShifts'
+import { sendTrackingEvent } from './api/tracking'
 
 // Webhook URL for tracking sessions (session_start event)
 // ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
 const WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/b695101c-3160-4721-a4de-6feeac5b913e'
-
-// Secondary webhook for app entry tracking
-const ENTRY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
 // Context to share URL params across all pages
 interface AppContextType {
@@ -107,6 +105,15 @@ function App() {
     if (!professionalId || hasNotifiedRef.current) return
     hasNotifiedRef.current = true
     notifySessionStart(professionalId)
+    
+    // Send page_enter tracking event (with empty data since plan hasn't loaded yet)
+    sendTrackingEvent(
+      professionalId,
+      'page_enter',
+      null, // plan not loaded yet
+      [], // availability not loaded yet
+      [] // shiftClaims not loaded yet
+    )
   }, [professionalId])
 
   // Handle entry parameter redirect
