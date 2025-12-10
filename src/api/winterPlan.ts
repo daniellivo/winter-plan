@@ -1308,19 +1308,21 @@ function _transformShiftsToWinterPlan(shiftsResponse: ShiftDetailsResponse[], pr
 }
 
 export async function getWinterPlan(professionalId: string, _month?: string): Promise<WinterPlan> {
-  if (USE_MOCKS) {
+  // Always try real API first, fallback to mocks on error
+  try {
+    console.log('🌐 Calling available-shifts API with userId:', professionalId)
+    const availableShiftsData = await fetchAvailableShifts(professionalId)
+    
+    // Store the raw data for use in getShiftDetails
+    sessionStorage.setItem(AVAILABLE_SHIFTS_STORAGE_KEY, JSON.stringify(availableShiftsData))
+    
+    return transformAvailableShiftsToWinterPlan(availableShiftsData, professionalId)
+  } catch (error) {
+    console.warn('⚠️ API call failed, using mock data:', error)
+    // Fallback to mocks if API fails
     await new Promise(resolve => setTimeout(resolve, 300))
     return buildMockWinterPlan()
   }
-  
-  // Use the available-shifts API to get real shift data
-  console.log('🌐 Calling available-shifts API with userId:', professionalId)
-  const availableShiftsData = await fetchAvailableShifts(professionalId)
-  
-  // Store the raw data for use in getShiftDetails
-  sessionStorage.setItem(AVAILABLE_SHIFTS_STORAGE_KEY, JSON.stringify(availableShiftsData))
-  
-  return transformAvailableShiftsToWinterPlan(availableShiftsData, professionalId)
 }
 
 /**
