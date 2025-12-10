@@ -75,7 +75,7 @@ export default function WinterPlanIntro() {
         </div>
 
         {/* Bottom CTA */}
-        <PrimaryButton onClick={() => navigate('/calendar')}>
+        <PrimaryButton onClick={handleViewPlanClick}>
           Ver mi plan
         </PrimaryButton>
       </div>
