@@ -52,26 +52,6 @@ function notifySessionStart(professionalId: string) {
   })
     .then(() => console.log('✅ Webhook sent successfully (no-cors mode)'))
     .catch((error) => console.error('❌ Failed to notify webhook:', error))
-
-  // Also send to entry webhook with encodedId
-  const entryPayload = {
-    encodedId: professionalId,
-    timestamp: new Date().toISOString()
-  }
-
-  console.log('🚀 Sending entry webhook with payload:', entryPayload)
-
-  fetch(ENTRY_WEBHOOK_URL, {
-    method: 'POST',
-    mode: 'no-cors',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(entryPayload),
-    keepalive: true
-  })
-    .then(() => console.log('✅ Entry webhook sent successfully'))
-    .catch((error) => console.error('❌ Failed to send entry webhook:', error))
 }
 
 const professionalIdKey = 'winter_plan_professional_id'
