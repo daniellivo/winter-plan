@@ -1,9 +1,9 @@
-import type { WinterPlan, Shift } from '../types/winterPlan'
+import type { WinterPlan } from '../types/winterPlan'
 import type { AvailabilitySlot, ShiftClaim } from './winterPlan'
 import { getClaimedShiftIds } from './winterPlan'
 
 // Webhook URL for tracking events
-const TRACKING_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
+const TRACKING_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/981394b5-166b-4ecd-ad13-340406449379'
 
 /**
  * Tracking event payload structure
