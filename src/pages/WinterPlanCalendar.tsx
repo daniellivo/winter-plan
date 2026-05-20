@@ -5,7 +5,9 @@ import MonthSelector from '../components/Calendar/MonthSelector'
 import ShiftListModal from '../components/ShiftCard/ShiftListModal'
 import AvailabilityPopup from '../components/AvailabilityPopup'
 import AvailabilitySelector from '../components/AvailabilitySelector'
+import SummerEarlyAccessPopup from '../components/SummerEarlyAccessPopup'
 import { getWinterPlan, claimShift, unclaimShift, claimShiftsToApi, getClaimedShiftIds, clearClaimedShifts, getRejectedSlots, getRejectedShiftIds, fetchProfessionalAvailability, updateAvailability, type AvailabilityUpdate } from '../api/winterPlan'
+import { upsertSummerPlanning, type SummerPlanningRow } from '../config/supabase'
 import { useFirebaseShifts } from '../hooks/useFirebaseShifts'
 import { useAppContext } from '../App'
 import { useAppNavigation } from '../hooks/useAppNavigation'
@@ -14,19 +16,63 @@ import type { WinterPlan, Shift } from '../types/winterPlan'
 import type { AvailabilitySlot, ShiftClaim } from '../api/winterPlan'
 
 // Webhook for tracking "Add availability" button clicks
-const ADD_AVAILABILITY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook-test/148ce6da-6856-4f88-aa55-eacf5a79f275'
+const ADD_AVAILABILITY_WEBHOOK_URL = 'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
-export default function WinterPlanCalendar() {
+interface WinterPlanCalendarProps {
+  variant?: 'winter' | 'summer'
+  locationLabel?: string
+  // List of valid per-day slot combinations. When provided, clicking a date toggles
+  // the active slot in/out of the date's set and snaps to the active slot only if
+  // the resulting set is not in this list.
+  allowedCombinations?: string[][]
+  // Center + specialty identifiers persisted alongside each availability row.
+  center?: string
+  specialty?: string
+}
+
+const SLOT_LABEL_ES: Record<string, string> = {
+  DAY: 'Mañana',
+  EVENING: 'Tarde',
+  NIGHT: 'Noche',
+}
+
+function describeCombination(combo: string[]): string {
+  const order = ['DAY', 'EVENING', 'NIGHT']
+  const sorted = [...combo].sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  if (sorted.length === 1) return `Solo ${SLOT_LABEL_ES[sorted[0]].toLowerCase()}`
+  if (sorted.length === 3) return 'Todo el día'
+  return sorted.map(s => SLOT_LABEL_ES[s].toLowerCase()).join(' y ').replace(/^./, c => c.toUpperCase())
+}
+
+function isCombinationAllowed(slots: Set<string>, allowed: string[][]): boolean {
+  if (slots.size === 0) return true
+  return allowed.some(combo =>
+    combo.length === slots.size && combo.every(s => slots.has(s))
+  )
+}
+
+export default function WinterPlanCalendar({
+  variant = 'winter',
+  locationLabel = 'Hospitalización de Teknon',
+  allowedCombinations,
+  center,
+  specialty,
+}: WinterPlanCalendarProps = {}) {
+  const isSummer = variant === 'summer'
   const navigate = useAppNavigation()
   const { professionalId } = useAppContext()
-  
+
+  const headerTitle = isSummer ? '🏖️ Tu Plan de Verano 🏖️' : '🎄 Tu Plan de Turnos 🎄'
+  // Summer: June (5) – September (8) 2026. Winter: December 2025 – January 2026.
+  const initialMonth = isSummer ? 5 : 11
+  const initialYear = isSummer ? 2026 : 2025
+
   const [plan, setPlan] = useState<WinterPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Default to December 2025
-  const [currentMonth, setCurrentMonth] = useState(11) // 0-indexed, 11 = December
-  const [currentYear, setCurrentYear] = useState(2025)
+
+  const [currentMonth, setCurrentMonth] = useState(initialMonth)
+  const [currentYear, setCurrentYear] = useState(initialYear)
   
   // Modal state
   const [selectedShifts, setSelectedShifts] = useState<Shift[] | null>(null)
@@ -50,8 +96,14 @@ export default function WinterPlanCalendar() {
   const [showAvailabilityPopup, setShowAvailabilityPopup] = useState(false)
   const [availableDaysCount, setAvailableDaysCount] = useState(0)
 
-  // Availability editor state
-  const [showAvailabilityEditor, setShowAvailabilityEditor] = useState(false)
+  // Availability editor state — opens by default in summer flow
+  const [showAvailabilityEditor, setShowAvailabilityEditor] = useState(isSummer)
+
+  // Summer-only early access FOMO popup — shows on every mount
+  const [showSummerPopup, setShowSummerPopup] = useState(isSummer)
+
+  // Summer success screen — shown after a successful "Guardar cambios"
+  const [showSummerSuccess, setShowSummerSuccess] = useState(false)
   const [activeSlot, setActiveSlot] = useState<'all' | 'day' | 'evening' | 'night' | 'delete' | null>(null)
   const [pendingSlotsByDate, setPendingSlotsByDate] = useState<Map<string, Set<string>>>(new Map())
   const [isSavingAvailability, setIsSavingAvailability] = useState(false)
@@ -149,11 +201,12 @@ export default function WinterPlanCalendar() {
     // Check if popup was dismissed in this session
     const popupDismissed = sessionStorage.getItem('availability_popup_dismissed') === 'true'
     
-    // Show popup if less than 10 days available (including 0) and not dismissed
-    if (count < 10 && !popupDismissed) {
+    // Show popup if less than 10 days available (including 0) and not dismissed.
+    // Summer flow opens the editor directly, so skip the suggestion popup.
+    if (count < 10 && !popupDismissed && !isSummer) {
       setShowAvailabilityPopup(true)
     }
-  }, [availability, loading, firebaseLoading])
+  }, [availability, loading, firebaseLoading, isSummer])
 
   const handleClosePopup = () => {
     setShowAvailabilityPopup(false)
@@ -181,24 +234,60 @@ export default function WinterPlanCalendar() {
     if (showAvailabilityEditor && activeSlot) {
       setPendingSlotsByDate(prev => {
         const newMap = new Map(prev)
-        
+
         if (activeSlot === 'delete') {
-          // Remove all slots for this date
           newMap.set(date, new Set())
-        } else {
-          // Map slot types to API slot strings
-          const slotMap: Record<string, string[]> = {
-            'all': ['DAY', 'EVENING', 'NIGHT'],
-            'day': ['DAY'],
-            'evening': ['EVENING'],
-            'night': ['NIGHT']
-          }
-          
-          const slotsToApply = slotMap[activeSlot]
-          // Overwrite existing slots for this date with the new ones
-          newMap.set(date, new Set(slotsToApply))
+          return newMap
         }
-        
+
+        const slotMap: Record<string, string[]> = {
+          'all': ['DAY', 'EVENING', 'NIGHT'],
+          'day': ['DAY'],
+          'evening': ['EVENING'],
+          'night': ['NIGHT'],
+        }
+        const slotsToApply = slotMap[activeSlot]
+
+        if (!allowedCombinations) {
+          // Legacy behavior: replace whatever was there
+          newMap.set(date, new Set(slotsToApply))
+          return newMap
+        }
+
+        // Combine behavior: toggle the active slot against the date's effective state
+        // (pending edit if it exists, otherwise the saved availability).
+        const baseSlots = newMap.has(date)
+          ? new Set(newMap.get(date)!)
+          : (() => {
+              const existing = availability.find(s => s.date === date)
+              const set = new Set<string>()
+              if (existing?.day) set.add('DAY')
+              if (existing?.evening) set.add('EVENING')
+              if (existing?.night) set.add('NIGHT')
+              return set
+            })()
+
+        if (activeSlot === 'all') {
+          const candidate = new Set(slotsToApply)
+          newMap.set(date, isCombinationAllowed(candidate, allowedCombinations)
+            ? candidate
+            : new Set(slotsToApply))
+          return newMap
+        }
+
+        const slot = slotsToApply[0]
+        if (baseSlots.has(slot)) {
+          baseSlots.delete(slot)
+        } else {
+          baseSlots.add(slot)
+        }
+
+        if (isCombinationAllowed(baseSlots, allowedCombinations)) {
+          newMap.set(date, baseSlots)
+        } else {
+          // Resulting combo isn't valid — snap to just the slot we just clicked
+          newMap.set(date, new Set([slot]))
+        }
         return newMap
       })
       return
@@ -318,6 +407,8 @@ export default function WinterPlanCalendar() {
       const webhookPayload = {
         encodedId: professionalId,
         timestamp: new Date().toISOString(),
+        center: center ?? null,
+        specialty: specialty ?? null,
         availability: availabilityArray
       }
 
@@ -334,7 +425,23 @@ export default function WinterPlanCalendar() {
       })
         .then(() => console.log('✅ Save availability webhook sent'))
         .catch((error) => console.error('❌ Failed to send save availability webhook:', error))
-      
+
+      // Persist summer planning rows in Supabase (one row per edited date)
+      if (isSummer && center && specialty) {
+        const supabaseRows: SummerPlanningRow[] = Array.from(pendingSlotsByDate.entries()).map(([date, slots]) => ({
+          professional_id: professionalId,
+          date,
+          morning: slots.has('DAY'),
+          evening: slots.has('EVENING'),
+          night: slots.has('NIGHT'),
+          center,
+          specialty,
+        }))
+        upsertSummerPlanning(supabaseRows).catch((err) => {
+          console.error('❌ Failed to upsert to Supabase:', err)
+        })
+      }
+
       // Reload availability data and available shifts
       try {
         const [availabilityData, availableShiftsData] = await Promise.all([
@@ -354,20 +461,27 @@ export default function WinterPlanCalendar() {
           setPlan(updatedPlan)
         }
         
-        // Send tracking event after availability is saved
-        sendTrackingEvent(
-          professionalId,
-          'save_availability',
-          updatedPlan,
-          updatedAvailability,
-          updatedShiftClaims
-        )
+        // Tracking is disabled in the summer flow — the n8n save webhook already carries the data
+        if (!isSummer) {
+          sendTrackingEvent(
+            professionalId,
+            'save_availability',
+            updatedPlan,
+            updatedAvailability,
+            updatedShiftClaims
+          )
+        }
       } catch {
         // Silently ignore errors as per spec
       }
 
       // Reset editor state (always close, even on error)
       handleCancelAvailabilityEditor()
+
+      // Summer flow ends here with a success screen
+      if (isSummer) {
+        setShowSummerSuccess(true)
+      }
     } catch (error) {
       // Silently ignore errors as per spec
       console.error('Error saving availability:', error)
@@ -515,15 +629,17 @@ export default function WinterPlanCalendar() {
         return
       }
 
-      // Send tracking event before submitting (with selected shifts)
-      sendTrackingEvent(
-        professionalId,
-        'submit_shifts',
-        plan,
-        availability,
-        shiftClaims,
-        true // include selected shifts IDs
-      )
+      // Tracking is disabled in the summer flow
+      if (!isSummer) {
+        sendTrackingEvent(
+          professionalId,
+          'submit_shifts',
+          plan,
+          availability,
+          shiftClaims,
+          true // include selected shifts IDs
+        )
+      }
 
       // Convert shift IDs to numbers for the API
       const shiftIds = shiftIdStrings.map(id => parseInt(id, 10)).filter(id => !isNaN(id))
@@ -558,9 +674,13 @@ export default function WinterPlanCalendar() {
   const getMonthKey = () => `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`
   const currentMonthData = plan?.months.find(m => m.month === getMonthKey())
 
-  // Navigation limits (Dec 2025 - Jan 2026)
-  const canGoPrevious = !(currentYear === 2025 && currentMonth === 11)
-  const canGoNext = !(currentYear === 2026 && currentMonth === 0)
+  // Navigation limits: Summer Mayo–Septiembre 2026, Winter Dic 2025–Ene 2026
+  const canGoPrevious = isSummer
+    ? !(currentYear === 2026 && currentMonth === 5)
+    : !(currentYear === 2025 && currentMonth === 11)
+  const canGoNext = isSummer
+    ? !(currentYear === 2026 && currentMonth === 8)
+    : !(currentYear === 2026 && currentMonth === 0)
 
   // Show loading state
   const isLoading = loading || (firebaseLoading && !plan)
@@ -572,7 +692,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Plan 🎄
+              {isSummer ? '🏖️ Tu Plan de Verano 🏖️' : '🎄 Aquí está tu Plan 🎄'}
             </h1>
             <div className="w-10" />
           </div>
@@ -594,7 +714,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Plan 🎄
+              {isSummer ? '🏖️ Tu Plan de Verano 🏖️' : '🎄 Aquí está tu Plan 🎄'}
             </h1>
             <div className="w-10" />
           </div>
@@ -619,7 +739,7 @@ export default function WinterPlanCalendar() {
           <div className="flex items-center justify-between h-14 px-4">
             <div className="w-10" />
             <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-              🎄 Aquí está tu Plan 🎄
+              {isSummer ? '🏖️ Tu Plan de Verano 🏖️' : '🎄 Aquí está tu Plan 🎄'}
             </h1>
             <div className="w-10" />
           </div>
@@ -641,64 +761,159 @@ export default function WinterPlanCalendar() {
     )
   }
 
+  if (isSummer && showSummerSuccess) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col">
+        <header className="sticky top-0 z-50 bg-white">
+          <div className="flex items-center justify-between h-12 px-4">
+            <div className="w-10" />
+            <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
+              {headerTitle}
+            </h1>
+            <button
+              onClick={() => {
+                window.location.href = 'https://livo-385512.web.app/app/chat'
+              }}
+              className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <IconHeadset size={20} />
+            </button>
+          </div>
+        </header>
+
+        <div className="flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <div className="w-20 h-20 rounded-full bg-green-50 flex items-center justify-center mb-6">
+            <IconCheck size={44} className="text-green-500" strokeWidth={2.5} />
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">
+            ¡Listo!
+          </h2>
+
+          <p className="text-base text-gray-700 leading-relaxed mb-2 max-w-sm">
+            Hemos guardado tu disponibilidad.
+          </p>
+
+          <p className="text-base text-gray-600 leading-relaxed max-w-sm">
+            Los turnos seleccionados se te asignarán en las próximas <span className="font-semibold text-gray-900">48&nbsp;horas</span>.
+          </p>
+
+          <div className="mt-8 bg-gray-50 rounded-xl px-4 py-3 max-w-sm">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Te avisaremos por la app de Livo cuando estén confirmados. Si necesitas cambiar algo, contacta con soporte.
+            </p>
+          </div>
+
+          <button
+            onClick={() => {
+              window.location.href = 'https://livo-385512.web.app/app/ShiftStack/Feed?tab=SHIFTS'
+            }}
+            className="mt-8 w-full max-w-sm py-3 px-4 rounded-full bg-[#2cbeff] hover:bg-[#1ea8e0] text-white font-semibold text-base transition-all duration-200 active:scale-98"
+          >
+            Ir a la app
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white">
         <div className="flex items-center justify-between h-12 px-4">
-          <button 
-            onClick={() => navigate('/')}
-            className="flex items-center gap-1 text-[#2cbeff] font-medium text-sm hover:opacity-80 transition-opacity"
-          >
-            <IconChevronLeft size={20} />
-            <span>Atrás</span>
-          </button>
+          {isSummer ? (
+            <div className="w-10" />
+          ) : (
+            <button
+              onClick={() => navigate('/')}
+              className="flex items-center gap-1 text-[#2cbeff] font-medium text-sm hover:opacity-80 transition-opacity"
+            >
+              <IconChevronLeft size={20} />
+              <span>Atrás</span>
+            </button>
+          )}
           <h1 className="text-base font-semibold text-gray-900 text-center flex-1">
-            🎄 Tu Plan de Turnos 🎄
+            {headerTitle}
           </h1>
-          <button 
-            onClick={() => {
-              const phoneNumber = '34930491425' // Remove + for wa.me URL
-              const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
-              
-              if (isMobile) {
-                // On mobile: use window.location.href to open WhatsApp app natively
-                // This will open the app if installed, or WhatsApp Web if not
-                window.location.href = `https://wa.me/${phoneNumber}`
-              } else {
-                // Desktop: open WhatsApp Web in new tab
-                window.open(`https://wa.me/${phoneNumber}`, '_blank')
-              }
-            }}
-            className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
-          >
-            <IconHeadset size={20} />
-          </button>
+          {isSummer ? (
+            <button
+              onClick={() => {
+                window.location.href = 'https://livo-385512.web.app/app/chat'
+              }}
+              className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <IconHeadset size={20} />
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                const phoneNumber = '34930491425' // Remove + for wa.me URL
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+
+                if (isMobile) {
+                  // On mobile: use window.location.href to open WhatsApp app natively
+                  // This will open the app if installed, or WhatsApp Web if not
+                  window.location.href = `https://wa.me/${phoneNumber}`
+                } else {
+                  // Desktop: open WhatsApp Web in new tab
+                  window.open(`https://wa.me/${phoneNumber}`, '_blank')
+                }
+              }}
+              className="p-2 -mr-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <IconHeadset size={20} />
+            </button>
+          )}
         </div>
       </header>
 
       <div className="px-4">
         {/* Intro text */}
-        <div className="text-center py-4">
-          <p className="text-gray-600 text-sm leading-relaxed mb-2">
-            Los días marcados coinciden con tu disponibilidad.
-          </p>
-          <p className="text-gray-600 text-sm leading-relaxed mb-2">
-            Pulsa en cada fecha para ver y elegir tus turnos.
-          </p>
-          <p className="text-gray-600 text-sm leading-relaxed">
-            Confírmalos a la vez en el botón final.
-          </p>
-        </div>
+        {isSummer ? (
+          <div className="py-4">
+            <p className="text-gray-600 text-sm leading-relaxed mb-3 text-center">
+              Dinos qué días quieres trabajar. Hay turnos disponibles cada día en <span className="font-semibold text-gray-800">{locationLabel}</span>.
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed mb-3 text-center">
+              Toda la disponibilidad que marques se asignará automáticamente como turno.
+            </p>
+            <div className="bg-gray-50 rounded-xl p-4 mt-4">
+              <p className="text-xs font-semibold text-gray-700 mb-2">
+                Combinaciones permitidas por día:
+              </p>
+              <ul className="text-xs text-gray-600 space-y-1">
+                {(allowedCombinations ?? [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]).map((combo, i) => (
+                  <li key={i}>• {describeCombination(combo)}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+              Los días marcados coinciden con tu disponibilidad.
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed mb-2">
+              Pulsa en cada fecha para ver y elegir tus turnos.
+            </p>
+            <p className="text-gray-600 text-sm leading-relaxed">
+              Confírmalos a la vez en el botón final.
+            </p>
+          </div>
+        )}
 
         {/* Add availability button or Availability Selector */}
-        <div className="pb-4">
+        <div className={isSummer ? 'pb-0' : 'pb-4'}>
           {showAvailabilityEditor ? (
             <AvailabilitySelector
               activeSlot={activeSlot}
               onSlotSelect={handleSlotSelect}
               onSave={handleSaveAvailability}
               isSaving={isSavingAvailability}
+              hideAllDay={isSummer}
+              hideSaveButton={isSummer}
+              allowedCombinations={allowedCombinations}
             />
           ) : (
             <button
@@ -718,6 +933,16 @@ export default function WinterPlanCalendar() {
           onNext={handleNextMonth}
           canGoPrevious={canGoPrevious}
           canGoNext={canGoNext}
+          months={isSummer ? [
+            { month: 5, year: 2026 },
+            { month: 6, year: 2026 },
+            { month: 7, year: 2026 },
+            { month: 8, year: 2026 },
+          ] : undefined}
+          onSelectMonth={isSummer ? (m, y) => {
+            setCurrentMonth(m)
+            setCurrentYear(y)
+          } : undefined}
         />
 
         {/* Calendar */}
@@ -828,6 +1053,14 @@ export default function WinterPlanCalendar() {
             const key = `${date}-${label}`
             setRejectedSlots(prev => prev.filter(k => k !== key))
           }}
+        />
+      )}
+
+      {/* Summer early-access popup */}
+      {showSummerPopup && (
+        <SummerEarlyAccessPopup
+          onClose={() => setShowSummerPopup(false)}
+          locationLabel={locationLabel}
         />
       )}
 

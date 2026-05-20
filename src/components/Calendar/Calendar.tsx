@@ -249,7 +249,7 @@ export default function Calendar({ year, month, days, onDayClick, rejectedSlots 
               className={`
                 min-h-[80px] py-1 px-0.5 border-t border-gray-100
                 ${isClickable ? 'cursor-pointer hover:bg-gray-50' : ''}
-                ${pendingSlots !== undefined ? 'bg-gray-100' : ''}
+                ${pendingSlots !== undefined && pendingSlots.size > 0 ? 'bg-gray-100' : ''}
               `}
             >
               <div className="text-center text-sm text-gray-700 mb-1">

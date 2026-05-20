@@ -17,6 +17,8 @@ export interface TrackingEvent {
   offeredShiftsCount: number   // Shifts offered to the nurse
   reservedShiftsCount: number // Shifts already confirmed in the app
   selectedShiftsIds?: string[] // IDs of selected shifts (only for submit_shifts)
+  center?: string | null      // Center identifier (e.g. "teknon"), only set in summer flows
+  specialty?: string | null   // Specialty identifier (e.g. "hospitalizacion"), only set in summer flows
 }
 
 /**
@@ -132,10 +134,11 @@ export async function sendTrackingEvent(
   plan: WinterPlan | null,
   availability: AvailabilitySlot[],
   shiftClaims: ShiftClaim[],
-  includeSelectedShifts: boolean = false
+  includeSelectedShifts: boolean = false,
+  context: { center?: string | null; specialty?: string | null } = {}
 ): Promise<void> {
   const metrics = calculateTrackingMetrics(plan, availability, shiftClaims)
-  
+
   const payload: TrackingEvent = {
     encodedUserId,
     action,
@@ -143,9 +146,11 @@ export async function sendTrackingEvent(
     availableDaysCount: metrics.availableDaysCount,
     availableSlotsCount: metrics.availableSlotsCount,
     offeredShiftsCount: metrics.offeredShiftsCount,
-    reservedShiftsCount: metrics.reservedShiftsCount
+    reservedShiftsCount: metrics.reservedShiftsCount,
+    center: context.center ?? null,
+    specialty: context.specialty ?? null,
   }
-  
+
   // Only include selected shifts for submit_shifts action
   if (includeSelectedShifts) {
     payload.selectedShiftsIds = getSelectedShiftsIds()

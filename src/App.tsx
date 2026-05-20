@@ -1,4 +1,4 @@
-import { Routes, Route, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate, useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { createContext, useContext, useEffect, useRef } from 'react'
 import WinterPlanIntro from './pages/WinterPlanIntro'
 import WinterPlanCalendar from './pages/WinterPlanCalendar'
@@ -8,6 +8,7 @@ import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 import AvailableShifts from './pages/AvailableShifts'
 import { sendTrackingEvent } from './api/tracking'
+import { insertSummerPageView } from './config/supabase'
 
 // Webhook URL for tracking sessions (session_start event)
 // ⚠️ IMPORTANTE: El workflow debe estar ACTIVO en n8n (botón "Active" en ON)
@@ -84,9 +85,23 @@ function App() {
   useEffect(() => {
     if (!professionalId || hasNotifiedRef.current) return
     hasNotifiedRef.current = true
+
+    // Summer flow disables all marketing/tracking webhooks.
+    // Instead, log the page view directly to Supabase.
+    const summerMatch = location.pathname.match(/^\/summer\/([^/]+)\/([^/]+)/)
+    if (summerMatch) {
+      const [, center, specialty] = summerMatch
+      insertSummerPageView({ professional_id: professionalId, center, specialty }).catch(() => {
+        // swallow — already logged inside the helper
+      })
+      return
+    }
+
+    // Bare /summer (e.g. before redirect) — skip everything
+    if (location.pathname.startsWith('/summer')) return
+
     notifySessionStart(professionalId)
-    
-    // Send page_enter tracking event (with empty data since plan hasn't loaded yet)
+
     sendTrackingEvent(
       professionalId,
       'page_enter',
@@ -94,7 +109,7 @@ function App() {
       [], // availability not loaded yet
       [] // shiftClaims not loaded yet
     )
-  }, [professionalId])
+  }, [professionalId, location.pathname])
 
   // Handle entry parameter redirect
   useEffect(() => {
@@ -129,6 +144,19 @@ function App() {
         <Route path="/" element={<WinterPlanIntro />} />
         <Route path="/info" element={<WinterPlanInfo />} />
         <Route path="/calendar" element={<WinterPlanCalendar />} />
+        <Route
+          path="/summer/teknon/hospitalizacion"
+          element={
+            <WinterPlanCalendar
+              variant="summer"
+              locationLabel="Hospitalización de Teknon"
+              allowedCombinations={[['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]}
+              center="teknon"
+              specialty="hospitalizacion"
+            />
+          }
+        />
+        <Route path="/summer" element={<Navigate to="/summer/teknon/hospitalizacion" replace />} />
         <Route path="/shifts/:shiftId" element={<ShiftDetails />} />
         <Route path="/cancellation-policy/:policyId" element={<CancellationPolicy />} />
         <Route path="/cancellation-policy" element={<CancellationPolicy />} />
