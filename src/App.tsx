@@ -7,6 +7,7 @@ import ShiftDetails from './pages/ShiftDetails'
 import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 import AvailableShifts from './pages/AvailableShifts'
+import TurnosDisponibles from './pages/TurnosDisponibles'
 import { sendTrackingEvent } from './api/tracking'
 import { insertSummerPageView } from './config/supabase'
 
@@ -156,6 +157,7 @@ function App() {
             />
           }
         />
+        <Route path="/summer/teknon/turnos-disponibles" element={<TurnosDisponibles />} />
         <Route path="/summer" element={<Navigate to="/summer/teknon/hospitalizacion" replace />} />
         <Route path="/shifts/:shiftId" element={<ShiftDetails />} />
         <Route path="/cancellation-policy/:policyId" element={<CancellationPolicy />} />

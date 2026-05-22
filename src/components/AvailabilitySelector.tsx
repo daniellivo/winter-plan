@@ -9,6 +9,7 @@ interface AvailabilitySelectorProps {
   hideSaveButton?: boolean
   // When provided, only slot buttons whose code appears in any combination are shown.
   allowedCombinations?: string[][]
+  title?: string
 }
 
 export default function AvailabilitySelector({
@@ -19,6 +20,7 @@ export default function AvailabilitySelector({
   hideAllDay = false,
   hideSaveButton = false,
   allowedCombinations,
+  title = 'Añade disponibilidad',
 }: AvailabilitySelectorProps) {
   const usedSlots = new Set<string>()
   if (allowedCombinations) {
@@ -32,7 +34,7 @@ export default function AvailabilitySelector({
     <div className="pb-4 px-4">
       {/* Title */}
       <h2 className="text-center text-gray-900 font-semibold mb-4">
-        Añade disponibilidad
+        {title}
       </h2>
 
       {/* Availability buttons */}
