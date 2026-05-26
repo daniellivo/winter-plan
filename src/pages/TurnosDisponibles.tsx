@@ -126,6 +126,7 @@ export default function TurnosDisponibles() {
   const [inventoryByDate, setInventoryByDate] = useState<Map<string, Map<Slot, number>>>(
     new Map(),
   )
+  const [pricesByDateSlot, setPricesByDateSlot] = useState<Map<string, number>>(new Map())
   const [myClaims, setMyClaims] = useState<AvailableShiftRow[]>([])
   const [loading, setLoading] = useState(false)
   const [pendingClaimKey, setPendingClaimKey] = useState<string | null>(null)
@@ -154,12 +155,15 @@ export default function TurnosDisponibles() {
     fetchInventory(FACILITY, specialty)
       .then(entries => {
         const map = new Map<string, Map<Slot, number>>()
-        entries.forEach(({ date, slot, freeCount }) => {
+        const prices = new Map<string, number>()
+        entries.forEach(({ date, slot, freeCount, price }) => {
           const inner = map.get(date) ?? new Map<Slot, number>()
           inner.set(slot, freeCount)
           map.set(date, inner)
+          prices.set(`${date}|${slot}`, price)
         })
         setInventoryByDate(map)
+        setPricesByDateSlot(prices)
       })
       .catch(err => console.error('fetchInventory failed:', err))
       .finally(() => setLoading(false))
@@ -203,12 +207,15 @@ export default function TurnosDisponibles() {
       fetchInventory(FACILITY, specialty)
         .then(entries => {
           const map = new Map<string, Map<Slot, number>>()
-          entries.forEach(({ date, slot, freeCount }) => {
+          const prices = new Map<string, number>()
+          entries.forEach(({ date, slot, freeCount, price }) => {
             const inner = map.get(date) ?? new Map<Slot, number>()
             inner.set(slot, freeCount)
             map.set(date, inner)
+            prices.set(`${date}|${slot}`, price)
           })
           setInventoryByDate(map)
+          setPricesByDateSlot(prices)
         })
         .catch(() => {})
     }
@@ -291,12 +298,15 @@ export default function TurnosDisponibles() {
           // Refresh inventory to reflect reality.
           fetchInventory(FACILITY, specialty).then(entries => {
             const map = new Map<string, Map<Slot, number>>()
-            entries.forEach(({ date: d, slot: s, freeCount }) => {
+            const prices = new Map<string, number>()
+            entries.forEach(({ date: d, slot: s, freeCount, price }) => {
               const inner = map.get(d) ?? new Map<Slot, number>()
               inner.set(s, freeCount)
               map.set(d, inner)
+              prices.set(`${d}|${s}`, price)
             })
             setInventoryByDate(map)
+            setPricesByDateSlot(prices)
           })
           return
         }
@@ -317,7 +327,7 @@ export default function TurnosDisponibles() {
           field: FIELD_LABEL[specialty],
           start_time: times.start,
           end_time: times.end,
-          price: 100,
+          price: pricesByDateSlot.get(`${date}|${slot}`) ?? 0,
           claimed_by: professionalId,
           claimed_at: new Date().toISOString(),
           confirmed_at: null,
@@ -346,7 +356,7 @@ export default function TurnosDisponibles() {
         setPendingClaimKey(null)
       }
     },
-    [professionalId, specialty, myClaims],
+    [professionalId, specialty, myClaims, pricesByDateSlot],
   )
 
   const releaseSlot = useCallback(
@@ -675,6 +685,12 @@ export default function TurnosDisponibles() {
           date={modalDate}
           specialty={specialty}
           inventory={inventoryByDate.get(modalDate) ?? new Map()}
+          prices={new Map(
+            (['TM', 'TT', 'TN'] as Slot[]).flatMap(s => {
+              const p = pricesByDateSlot.get(`${modalDate}|${s}`)
+              return p !== undefined ? [[s, p] as [Slot, number]] : []
+            }),
+          )}
           myClaims={myClaimsForSpecialty.filter(c => c.date === modalDate)}
           pendingKey={pendingClaimKey}
           onToggle={slot => toggleSlot(modalDate, slot)}
@@ -699,6 +715,7 @@ interface DayShiftsModalProps {
   date: string
   specialty: Specialty
   inventory: Map<Slot, number>
+  prices: Map<Slot, number>
   myClaims: AvailableShiftRow[]
   pendingKey: string | null
   onToggle: (slot: Slot) => void
@@ -709,6 +726,7 @@ function DayShiftsModal({
   date,
   specialty,
   inventory,
+  prices,
   myClaims,
   pendingKey,
   onToggle,
@@ -778,7 +796,9 @@ function DayShiftsModal({
                       Hospitalización · {FIELD_LABEL[specialty]}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-sm font-semibold text-green-600">100€</p>
+                      <p className="text-sm font-semibold text-green-600">
+                        {(myClaims.find(c => c.slot === slot)?.price ?? prices.get(slot) ?? 0)}€
+                      </p>
                       {!claimedByMe && (
                         <p className="text-xs text-gray-500">
                           {free === 0 ? 'Sin huecos' : `${free} disponible${free === 1 ? '' : 's'}`}

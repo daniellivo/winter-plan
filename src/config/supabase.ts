@@ -90,6 +90,7 @@ export interface InventoryEntry {
   date: string
   slot: Slot
   freeCount: number
+  price: number
 }
 
 export async function fetchInventory(
@@ -99,7 +100,7 @@ export async function fetchInventory(
   await releaseExpiredHolds()
   const { data, error } = await supabase
     .from('available_shifts')
-    .select('date, slot')
+    .select('date, slot, price')
     .eq('facility', facility)
     .eq('specialty', specialty)
     .is('claimed_by', null)
@@ -108,13 +109,15 @@ export async function fetchInventory(
     throw error
   }
   const counts = new Map<string, number>()
-  ;(data ?? []).forEach((r: { date: string; slot: Slot }) => {
+  const prices = new Map<string, number>()
+  ;(data ?? []).forEach((r: { date: string; slot: Slot; price: number }) => {
     const k = `${r.date}|${r.slot}`
     counts.set(k, (counts.get(k) ?? 0) + 1)
+    if (!prices.has(k)) prices.set(k, r.price)
   })
   return Array.from(counts.entries()).map(([k, freeCount]) => {
     const [date, slot] = k.split('|')
-    return { date, slot: slot as Slot, freeCount }
+    return { date, slot: slot as Slot, freeCount, price: prices.get(k) ?? 0 }
   })
 }
 
