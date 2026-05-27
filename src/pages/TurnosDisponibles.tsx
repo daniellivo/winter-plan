@@ -12,6 +12,7 @@ import Calendar from '../components/Calendar/Calendar'
 import MonthSelector from '../components/Calendar/MonthSelector'
 import AvailabilitySelector from '../components/AvailabilitySelector'
 import {
+  supabase,
   fetchInventory,
   fetchMyClaims,
   claimAvailableShift,
@@ -133,6 +134,7 @@ export default function TurnosDisponibles() {
   const { professionalId } = useAppContext()
 
   const [specialty, setSpecialty] = useState<Specialty | ''>('')
+  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
   const [currentMonth, setCurrentMonth] = useState(6) // Julio 2026 (Junio oculto)
   const [currentYear, setCurrentYear] = useState(2026)
   const [activeSlot, setActiveSlot] = useState<
@@ -198,6 +200,31 @@ export default function TurnosDisponibles() {
       .then(setMyClaims)
       .catch(err => console.error('fetchMyClaims failed:', err))
   }, [professionalId])
+
+  // Check whitelist whenever specialty changes.
+  useEffect(() => {
+    if (!specialty) {
+      setHasAccess(null)
+      return
+    }
+    setHasAccess(null)
+    let cancelled = false
+    async function check() {
+      try {
+        const { data } = await supabase
+          .from('specialty_whitelist')
+          .select('id')
+          .eq('professional_id', professionalId)
+          .eq('specialty', specialty as string)
+          .maybeSingle()
+        if (!cancelled) setHasAccess(data !== null)
+      } catch {
+        if (!cancelled) setHasAccess(false)
+      }
+    }
+    check()
+    return () => { cancelled = true }
+  }, [specialty, professionalId])
 
   // Load inventory whenever specialty changes.
   useEffect(() => {
@@ -614,6 +641,20 @@ export default function TurnosDisponibles() {
             <div className="text-4xl mb-4">📅</div>
             <p className="text-gray-600 text-sm">
               Elige una especialidad arriba para empezar a seleccionar turnos.
+            </p>
+          </div>
+        ) : hasAccess === null ? (
+          <div className="py-16 text-center">
+            <p className="text-gray-400 text-sm">Verificando acceso…</p>
+          </div>
+        ) : !hasAccess ? (
+          <div className="py-16 text-center px-6">
+            <div className="text-4xl mb-4">🔒</div>
+            <h2 className="text-base font-semibold text-gray-900 mb-2">
+              Sin acceso a esta especialidad
+            </h2>
+            <p className="text-sm text-gray-600 leading-relaxed">
+              No tienes acceso a los turnos de esta especialidad. Contacta con el equipo de Livo para solicitar acceso.
             </p>
           </div>
         ) : (

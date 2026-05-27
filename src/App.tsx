@@ -8,6 +8,9 @@ import CancellationPolicy from './pages/CancellationPolicy'
 import ShiftsDataReceiver from './pages/ShiftsDataReceiver'
 import AvailableShifts from './pages/AvailableShifts'
 import TurnosDisponibles from './pages/TurnosDisponibles'
+import AdminLogin from './pages/Admin/AdminLogin'
+import AdminDashboard from './pages/Admin/AdminDashboard'
+import AdminRoute from './components/AdminRoute'
 import { sendTrackingEvent } from './api/tracking'
 import { insertSummerPageView } from './config/supabase'
 
@@ -65,7 +68,9 @@ function App() {
   const location = useLocation()
   const hasNotifiedRef = useRef(false)
   const hasRedirectedRef = useRef(false)
-  
+
+  const isAdmin = location.pathname.startsWith('/admin')
+
   // Read params from URL or sessionStorage (fallback)
   // Support both ENCODED_PROFESSIONAL_ID (new format) and professionalId (legacy)
   let professionalId = searchParams.get('ENCODED_PROFESSIONAL_ID') || searchParams.get('professionalId') || ''
@@ -73,18 +78,20 @@ function App() {
   const entry = searchParams.get('entry')
 
   // If we have params in URL, save them to sessionStorage
-  if (professionalId) {
-    sessionStorage.setItem(professionalIdKey, professionalId)
-    if (token) sessionStorage.setItem(tokenKey, token)
-  } else {
-    // Try to recover from sessionStorage
-    professionalId = sessionStorage.getItem(professionalIdKey) || ''
-    token = sessionStorage.getItem(tokenKey)
+  if (!isAdmin) {
+    if (professionalId) {
+      sessionStorage.setItem(professionalIdKey, professionalId)
+      if (token) sessionStorage.setItem(tokenKey, token)
+    } else {
+      // Try to recover from sessionStorage
+      professionalId = sessionStorage.getItem(professionalIdKey) || ''
+      token = sessionStorage.getItem(tokenKey)
+    }
   }
 
   // Notify webhook once per page load (even if React Strict double-renders)
   useEffect(() => {
-    if (!professionalId || hasNotifiedRef.current) return
+    if (isAdmin || !professionalId || hasNotifiedRef.current) return
     hasNotifiedRef.current = true
 
     // Summer flow disables all marketing/tracking webhooks.
@@ -110,17 +117,31 @@ function App() {
       [], // availability not loaded yet
       [] // shiftClaims not loaded yet
     )
-  }, [professionalId, location.pathname])
+  }, [isAdmin, professionalId, location.pathname])
 
   // Handle entry parameter redirect
   useEffect(() => {
-    if (!professionalId || hasRedirectedRef.current) return
+    if (isAdmin || !professionalId || hasRedirectedRef.current) return
     if (entry === 'calendar' && location.pathname === '/') {
       hasRedirectedRef.current = true
       const queryString = professionalId ? `?ENCODED_PROFESSIONAL_ID=${professionalId}${token ? `&token=${token}` : ''}` : ''
       navigate(`/calendar${queryString}`, { replace: true })
     }
-  }, [entry, professionalId, token, location.pathname, navigate])
+  }, [isAdmin, entry, professionalId, token, location.pathname, navigate])
+
+  // Admin routes bypass professionalId requirement
+  if (isAdmin) {
+    return (
+      <Routes>
+        <Route path="/admin" element={<AdminLogin />} />
+        <Route path="/admin/dashboard" element={
+          <AdminRoute>
+            <AdminDashboard />
+          </AdminRoute>
+        } />
+      </Routes>
+    )
+  }
 
   // If no professionalId, show error
   if (!professionalId) {
