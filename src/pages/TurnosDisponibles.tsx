@@ -140,9 +140,9 @@ export default function TurnosDisponibles() {
   const [activeSlot, setActiveSlot] = useState<
     'all' | 'day' | 'evening' | 'night' | 'delete' | null
   >(null)
-  const [inventoryByDate, setInventoryByDate] = useState<Map<string, Map<Slot, number>>>(
-    new Map(),
-  )
+  const [inventoryByDate, setInventoryByDate] = useState<
+    Map<string, Map<Slot, { freeCount: number; price: number }>>
+  >(new Map())
   const [myClaims, setMyClaims] = useState<AvailableShiftRow[]>([])
   const [loading, setLoading] = useState(false)
   const [pendingClaimKey, setPendingClaimKey] = useState<string | null>(null)
@@ -172,25 +172,10 @@ export default function TurnosDisponibles() {
   }
 
   const getDisplayPrice = (date: string, slot: Slot): number => {
-    if (specialty !== 'sala-parts') return 100
-    const FESTIVOS = new Set(['2026-06-24', '2026-08-15', '2026-09-11'])
-    const d = new Date(date + 'T00:00:00')
-    const dow = d.getDay()
-    const isFestivo = FESTIVOS.has(date)
-    if (slot === 'TM') {
-      if (isFestivo || dow === 0) return 416.05
-      if (dow === 6) return 322.23
-      return 273.92
-    }
-    const next = addDays(date, 1)
-    const nextFestivo = FESTIVOS.has(next)
-    if (isFestivo && nextFestivo) return 597.67
-    if (isFestivo) return 526.62
-    if (nextFestivo) return 491.82
-    if (dow === 5) return 420.97
-    if (dow === 6) return 503.65
-    if (dow === 0) return 419.30
-    return 384.49
+    const fromInv = inventoryByDate.get(date)?.get(slot)?.price
+    if (fromInv !== undefined) return fromInv
+    const claim = myClaims.find(c => c.date === date && c.slot === slot && c.specialty === specialty)
+    return claim ? Number(claim.price) : 0
   }
 
   // Load my claims once on mount (independent of specialty).
@@ -235,10 +220,10 @@ export default function TurnosDisponibles() {
     setLoading(true)
     fetchInventory(facility, specialty)
       .then(entries => {
-        const map = new Map<string, Map<Slot, number>>()
-        entries.forEach(({ date, slot, freeCount }) => {
-          const inner = map.get(date) ?? new Map<Slot, number>()
-          inner.set(slot, freeCount)
+        const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
+        entries.forEach(({ date, slot, freeCount, price }) => {
+          const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>()
+          inner.set(slot, { freeCount, price })
           map.set(date, inner)
         })
         setInventoryByDate(map)
@@ -284,10 +269,10 @@ export default function TurnosDisponibles() {
     if (specialty) {
       fetchInventory(facility, specialty)
         .then(entries => {
-          const map = new Map<string, Map<Slot, number>>()
-          entries.forEach(({ date, slot, freeCount }) => {
-            const inner = map.get(date) ?? new Map<Slot, number>()
-            inner.set(slot, freeCount)
+          const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
+          entries.forEach(({ date, slot, freeCount, price }) => {
+            const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>()
+            inner.set(slot, { freeCount, price })
             map.set(date, inner)
           })
           setInventoryByDate(map)
@@ -309,9 +294,9 @@ export default function TurnosDisponibles() {
     inventoryByDate.forEach((slots, date) => {
       result.push({
         date,
-        day: (slots.get('TM') ?? 0) > 0,
-        evening: (slots.get('TT') ?? 0) > 0,
-        night: (slots.get('TN') ?? 0) > 0,
+        day: (slots.get('TM')?.freeCount ?? 0) > 0,
+        evening: (slots.get('TT')?.freeCount ?? 0) > 0,
+        night: (slots.get('TN')?.freeCount ?? 0) > 0,
       })
     })
     return result
@@ -372,10 +357,10 @@ export default function TurnosDisponibles() {
           setErrorMessage('Ese turno se acaba de agotar.')
           // Refresh inventory to reflect reality.
           fetchInventory(facility, specialty).then(entries => {
-            const map = new Map<string, Map<Slot, number>>()
-            entries.forEach(({ date: d, slot: s, freeCount }) => {
-              const inner = map.get(d) ?? new Map<Slot, number>()
-              inner.set(s, freeCount)
+            const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
+            entries.forEach(({ date: d, slot: s, freeCount, price }) => {
+              const inner = map.get(d) ?? new Map<Slot, { freeCount: number; price: number }>()
+              inner.set(s, { freeCount, price })
               map.set(d, inner)
             })
             setInventoryByDate(map)
@@ -417,8 +402,9 @@ export default function TurnosDisponibles() {
         if (appended) {
           setInventoryByDate(prev => {
             const map = new Map(prev)
-            const inner = new Map(map.get(date) ?? new Map<Slot, number>())
-            inner.set(slot, Math.max(0, (inner.get(slot) ?? 0) - 1))
+            const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>())
+            const entry = inner.get(slot)
+            if (entry) inner.set(slot, { ...entry, freeCount: Math.max(0, entry.freeCount - 1) })
             map.set(date, inner)
             return map
           })
@@ -451,8 +437,10 @@ export default function TurnosDisponibles() {
         setMyClaims(prev => prev.filter(c => c.id !== mine.id))
         setInventoryByDate(prev => {
           const map = new Map(prev)
-          const inner = new Map(map.get(date) ?? new Map<Slot, number>())
-          inner.set(slot, (inner.get(slot) ?? 0) + 1)
+          const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>())
+          const entry = inner.get(slot)
+          const price = entry?.price ?? Number(mine.price)
+          inner.set(slot, { freeCount: (entry?.freeCount ?? 0) + 1, price })
           map.set(date, inner)
           return map
         })
@@ -470,7 +458,7 @@ export default function TurnosDisponibles() {
       if (isClaimedByMe(date, slot)) {
         await releaseSlot(date, slot)
       } else {
-        const free = inventoryByDate.get(date)?.get(slot) ?? 0
+        const free = inventoryByDate.get(date)?.get(slot)?.freeCount ?? 0
         if (free <= 0) return
         await claimSlot(date, slot)
       }
@@ -805,7 +793,7 @@ export default function TurnosDisponibles() {
 interface DayShiftsModalProps {
   date: string
   specialty: Specialty
-  inventory: Map<Slot, number>
+  inventory: Map<Slot, { freeCount: number; price: number }>
   myClaims: AvailableShiftRow[]
   pendingKey: string | null
   onToggle: (slot: Slot) => void
@@ -837,7 +825,7 @@ function DayShiftsModal({
     slot === 'TM' ? IconSun : slot === 'TT' ? IconSunset2 : IconMoon
 
   const visibleSlots = slotsInOrder.filter(s => {
-    const free = inventory.get(s) ?? 0
+    const free = inventory.get(s)?.freeCount ?? 0
     const claimed = myClaims.some(c => c.slot === s)
     return free > 0 || claimed
   })
@@ -862,7 +850,7 @@ function DayShiftsModal({
 
           <div className="space-y-3 pb-4">
             {visibleSlots.map(slot => {
-              const free = inventory.get(slot) ?? 0
+              const free = inventory.get(slot)?.freeCount ?? 0
               const claimedByMe = myClaims.some(c => c.slot === slot)
               const Icon = SlotIcon(slot)
               const key = `${date}|${slot}`
