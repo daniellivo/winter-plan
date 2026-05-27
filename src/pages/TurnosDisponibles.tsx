@@ -635,7 +635,11 @@ export default function TurnosDisponibles() {
               <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
                 Selecciona tus turnos directamente en{' '}
                 <span className="font-semibold text-gray-800">
-                  {specialty === 'sala-parts' ? 'H. Sant Pau' : 'Hospital Teknon'}
+                  {!specialty
+                    ? 'tu hospital favorito'
+                    : specialty === 'sala-parts'
+                    ? 'H. Sant Pau'
+                    : 'Hospital Teknon'}
                 </span>.
               </p>
 
