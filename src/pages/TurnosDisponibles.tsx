@@ -28,15 +28,14 @@ import type { Shift, MonthData } from '../types/winterPlan'
 const WEBHOOK_URL =
   'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
-const FACILITY = 'teknon'
-
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts'
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Hospitalización Adultos',
   pediatria: 'Teknon — Hospitalización Pediátrica',
   materno: 'Teknon — Hospitalización Materno',
   neonatos: 'Teknon — Hospitalización Neonatal',
+  'sala-parts': 'H. Sant Pau — Sala de partos',
 }
 
 const FIELD_LABEL: Record<Specialty, string> = {
@@ -44,6 +43,23 @@ const FIELD_LABEL: Record<Specialty, string> = {
   pediatria: 'Pediatría',
   materno: 'Materno',
   neonatos: 'Neonatos',
+  'sala-parts': 'Matronas',
+}
+
+const UNIT_LABEL: Record<Specialty, string> = {
+  adultos: 'Hospitalización',
+  pediatria: 'Hospitalización',
+  materno: 'Hospitalización',
+  neonatos: 'Hospitalización',
+  'sala-parts': 'Sala de partos',
+}
+
+const SPECIALTY_FACILITY: Record<Specialty, string> = {
+  adultos: 'teknon',
+  pediatria: 'teknon',
+  materno: 'teknon',
+  neonatos: 'teknon',
+  'sala-parts': 'sant-pau',
 }
 
 const SLOT_LABEL: Record<Slot, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
@@ -53,8 +69,6 @@ const ACTIVE_SLOT_TO_LABEL: Record<'day' | 'evening' | 'night', Slot> = {
   evening: 'TT',
   night: 'TN',
 }
-
-const ALLOWED_COMBINATIONS: string[][] = [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
 
 function formatTimeLeft(ms: number): string {
   const total = Math.ceil(ms / 1000)
@@ -73,6 +87,7 @@ function validateClaim(
   date: string,
   slot: Slot,
   myClaims: AvailableShiftRow[],
+  allowedCombinations: string[][],
 ): { valid: true } | { valid: false; error: string } {
   // Rule 1: per-day combination — only TM, TT, TN alone, or TM+TT.
   const slotsToday = new Set<Slot>([slot])
@@ -83,7 +98,7 @@ function validateClaim(
   if (slotsToday.has('TM')) combo.add('DAY')
   if (slotsToday.has('TT')) combo.add('EVENING')
   if (slotsToday.has('TN')) combo.add('NIGHT')
-  const isAllowed = ALLOWED_COMBINATIONS.some(
+  const isAllowed = allowedCombinations.some(
     c => c.length === combo.size && c.every(s => combo.has(s)),
   )
   if (!isAllowed) {
@@ -136,6 +151,46 @@ export default function TurnosDisponibles() {
   const [done, setDone] = useState(false)
   const [now, setNow] = useState(() => Date.now())
 
+  const facility = specialty ? SPECIALTY_FACILITY[specialty] : 'teknon'
+
+  const allowedCombinations: string[][] = specialty === 'sala-parts'
+    ? [['DAY'], ['NIGHT']]
+    : [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
+
+  const slotLabel = (slot: Slot): string => {
+    if (specialty === 'sala-parts') return slot === 'TM' ? 'Día' : 'Noche'
+    return SLOT_LABEL[slot]
+  }
+
+  const slotTime = (slot: Slot): string => {
+    if (specialty === 'sala-parts') {
+      return slot === 'TM' ? '09:00 – 21:15' : '21:00 – 09:15'
+    }
+    return ({ TM: '07:10 – 14:10', TT: '14:00 – 21:00', TN: '20:45 – 07:30' } as Record<Slot, string>)[slot]
+  }
+
+  const getDisplayPrice = (date: string, slot: Slot): number => {
+    if (specialty !== 'sala-parts') return 100
+    const FESTIVOS = new Set(['2026-06-24', '2026-08-15', '2026-09-11'])
+    const d = new Date(date + 'T00:00:00')
+    const dow = d.getDay()
+    const isFestivo = FESTIVOS.has(date)
+    if (slot === 'TM') {
+      if (isFestivo || dow === 0) return 416.05
+      if (dow === 6) return 322.23
+      return 273.92
+    }
+    const next = addDays(date, 1)
+    const nextFestivo = FESTIVOS.has(next)
+    if (isFestivo && nextFestivo) return 597.67
+    if (isFestivo) return 526.62
+    if (nextFestivo) return 491.82
+    if (dow === 5) return 420.97
+    if (dow === 6) return 503.65
+    if (dow === 0) return 419.30
+    return 384.49
+  }
+
   // Load my claims once on mount (independent of specialty).
   useEffect(() => {
     if (!professionalId) return
@@ -151,7 +206,7 @@ export default function TurnosDisponibles() {
       return
     }
     setLoading(true)
-    fetchInventory(FACILITY, specialty)
+    fetchInventory(facility, specialty)
       .then(entries => {
         const map = new Map<string, Map<Slot, number>>()
         entries.forEach(({ date, slot, freeCount }) => {
@@ -200,7 +255,7 @@ export default function TurnosDisponibles() {
     if (timeLeftMs !== 0) return
     fetchMyClaims(professionalId).then(setMyClaims).catch(() => {})
     if (specialty) {
-      fetchInventory(FACILITY, specialty)
+      fetchInventory(facility, specialty)
         .then(entries => {
           const map = new Map<string, Map<Slot, number>>()
           entries.forEach(({ date, slot, freeCount }) => {
@@ -277,7 +332,7 @@ export default function TurnosDisponibles() {
   const claimSlot = useCallback(
     async (date: string, slot: Slot) => {
       if (!specialty) return
-      const validation = validateClaim(date, slot, myClaims)
+      const validation = validateClaim(date, slot, myClaims, allowedCombinations)
       if (!validation.valid) {
         setErrorMessage(validation.error)
         return
@@ -285,11 +340,11 @@ export default function TurnosDisponibles() {
       const key = `${date}|${slot}`
       setPendingClaimKey(key)
       try {
-        const id = await claimAvailableShift(professionalId, FACILITY, specialty, date, slot)
+        const id = await claimAvailableShift(professionalId, facility, specialty, date, slot)
         if (id === null) {
           setErrorMessage('Ese turno se acaba de agotar.')
           // Refresh inventory to reflect reality.
-          fetchInventory(FACILITY, specialty).then(entries => {
+          fetchInventory(facility, specialty).then(entries => {
             const map = new Map<string, Map<Slot, number>>()
             entries.forEach(({ date: d, slot: s, freeCount }) => {
               const inner = map.get(d) ?? new Map<Slot, number>()
@@ -302,18 +357,22 @@ export default function TurnosDisponibles() {
         }
         // Optimistic local update.
         const times =
-          slot === 'TM'
+          specialty === 'sala-parts'
+            ? slot === 'TM'
+              ? { start: '09:00', end: '21:15' }
+              : { start: '21:00', end: '09:15' }
+            : slot === 'TM'
             ? { start: '07:10', end: '14:10' }
             : slot === 'TT'
             ? { start: '14:00', end: '21:00' }
             : { start: '20:45', end: '07:30' }
         const newRow: AvailableShiftRow = {
           id,
-          facility: FACILITY,
+          facility,
           specialty,
           date,
           slot,
-          unit: 'Hospitalización',
+          unit: UNIT_LABEL[specialty],
           field: FIELD_LABEL[specialty],
           start_time: times.start,
           end_time: times.end,
@@ -544,6 +603,7 @@ export default function TurnosDisponibles() {
             <option value="pediatria">{SPECIALTY_LABEL.pediatria}</option>
             <option value="materno">{SPECIALTY_LABEL.materno}</option>
             <option value="neonatos">{SPECIALTY_LABEL.neonatos}</option>
+            <option value="sala-parts">{SPECIALTY_LABEL['sala-parts']}</option>
           </select>
         </div>
 
@@ -575,8 +635,9 @@ export default function TurnosDisponibles() {
               isSaving={false}
               hideAllDay
               hideSaveButton
-              allowedCombinations={ALLOWED_COMBINATIONS}
+              allowedCombinations={allowedCombinations}
               title="Selecciona tus turnos directamente"
+              dayLabel={specialty === 'sala-parts' ? 'Día' : 'Mañana'}
             />
 
             {errorMessage && (
@@ -679,6 +740,9 @@ export default function TurnosDisponibles() {
           pendingKey={pendingClaimKey}
           onToggle={slot => toggleSlot(modalDate, slot)}
           onClose={() => setModalDate(null)}
+          slotLabel={slotLabel}
+          slotTime={slotTime}
+          getDisplayPrice={getDisplayPrice}
         />
       )}
 
@@ -703,6 +767,9 @@ interface DayShiftsModalProps {
   pendingKey: string | null
   onToggle: (slot: Slot) => void
   onClose: () => void
+  slotLabel: (slot: Slot) => string
+  slotTime: (slot: Slot) => string
+  getDisplayPrice: (date: string, slot: Slot) => number
 }
 
 function DayShiftsModal({
@@ -713,6 +780,9 @@ function DayShiftsModal({
   pendingKey,
   onToggle,
   onClose,
+  slotLabel,
+  slotTime,
+  getDisplayPrice,
 }: DayShiftsModalProps) {
   const formatted = new Date(date + 'T00:00:00').toLocaleDateString('es-ES', {
     weekday: 'long',
@@ -720,11 +790,6 @@ function DayShiftsModal({
     month: 'long',
   })
   const slotsInOrder: Slot[] = ['TM', 'TT', 'TN']
-  const slotTimes: Record<Slot, string> = {
-    TM: '07:10 – 14:10',
-    TT: '14:00 – 21:00',
-    TN: '20:45 – 07:30',
-  }
   const SlotIcon = (slot: Slot) =>
     slot === 'TM' ? IconSun : slot === 'TT' ? IconSunset2 : IconMoon
 
@@ -770,15 +835,15 @@ function DayShiftsModal({
                     <div className="flex items-center gap-2 mb-1">
                       <Icon size={16} className="text-gray-700" />
                       <span className="text-sm font-semibold text-gray-900">
-                        {SLOT_LABEL[slot]}
+                        {slotLabel(slot)}
                       </span>
-                      <span className="text-sm text-gray-600">· {slotTimes[slot]}</span>
+                      <span className="text-sm text-gray-600">· {slotTime(slot)}</span>
                     </div>
                     <p className="text-sm text-gray-700">
-                      Hospitalización · {FIELD_LABEL[specialty]}
+                      {UNIT_LABEL[specialty]} · {FIELD_LABEL[specialty]}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <p className="text-sm font-semibold text-green-600">100€</p>
+                      <p className="text-sm font-semibold text-green-600">{getDisplayPrice(date, slot)}€</p>
                       {!claimedByMe && (
                         <p className="text-xs text-gray-500">
                           {free === 0 ? 'Sin huecos' : `${free} disponible${free === 1 ? '' : 's'}`}
