@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [adding, setAdding] = useState<Specialty | null>(null)
   const [removing, setRemoving] = useState<number | null>(null)
   const [errors, setErrors] = useState<Partial<Record<Specialty, string>>>({})
+  const [infos, setInfos] = useState<Partial<Record<Specialty, string>>>({})
 
   const load = useCallback(async () => {
     const { data, error } = await supabase
@@ -48,21 +49,55 @@ export default function AdminDashboard() {
   useEffect(() => { load() }, [load])
 
   async function handleAdd(specialty: Specialty) {
-    const professionalId = inputs[specialty].trim()
-    if (!professionalId) return
+    const raw = inputs[specialty]
+    const ids = Array.from(
+      new Set(
+        raw
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean),
+      ),
+    )
+    if (ids.length === 0) return
     setErrors(prev => ({ ...prev, [specialty]: undefined }))
+    setInfos(prev => ({ ...prev, [specialty]: undefined }))
     setAdding(specialty)
-    const { error } = await supabase
-      .from('specialty_whitelist')
-      .insert({ professional_id: professionalId, specialty })
+
+    const existing = new Set(
+      entries.filter(e => e.specialty === specialty).map(e => e.professional_id),
+    )
+    const duplicates = ids.filter(id => existing.has(id))
+    const toInsert = ids.filter(id => !existing.has(id))
+
+    let insertError: string | null = null
+    if (toInsert.length > 0) {
+      const { error } = await supabase
+        .from('specialty_whitelist')
+        .insert(toInsert.map(id => ({ professional_id: id, specialty })))
+      if (error) insertError = 'Error al añadir'
+    }
     setAdding(null)
-    if (error) {
+
+    if (insertError) {
+      setErrors(prev => ({ ...prev, [specialty]: insertError }))
+      return
+    }
+
+    if (duplicates.length > 0 && toInsert.length === 0) {
       setErrors(prev => ({
         ...prev,
-        [specialty]: error.code === '23505' ? 'Ya está en la lista' : 'Error al añadir',
+        [specialty]: ids.length === 1 ? 'Ya está en la lista' : 'Todos ya estaban en la lista',
       }))
       return
     }
+
+    if (duplicates.length > 0) {
+      setInfos(prev => ({
+        ...prev,
+        [specialty]: `${toInsert.length} añadido${toInsert.length === 1 ? '' : 's'}, ${duplicates.length} ya estaba${duplicates.length === 1 ? '' : 'n'}`,
+      }))
+    }
+
     setInputs(prev => ({ ...prev, [specialty]: '' }))
     await load()
   }
@@ -111,6 +146,7 @@ export default function AdminDashboard() {
           const isAdding = adding === specialty
           const inputVal = inputs[specialty]
           const err = errors[specialty]
+          const info = infos[specialty]
 
           return (
             <div key={specialty} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
@@ -151,9 +187,10 @@ export default function AdminDashboard() {
                     onChange={e => {
                       setInputs(prev => ({ ...prev, [specialty]: e.target.value }))
                       if (err) setErrors(prev => ({ ...prev, [specialty]: undefined }))
+                      if (info) setInfos(prev => ({ ...prev, [specialty]: undefined }))
                     }}
                     onKeyDown={e => e.key === 'Enter' && handleAdd(specialty)}
-                    placeholder="ENCODED_PROFESSIONAL_ID"
+                    placeholder="ID1, ID2, ID3…"
                     className="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2cbeff] focus:border-transparent"
                   />
                   <button
@@ -166,6 +203,7 @@ export default function AdminDashboard() {
                   </button>
                 </div>
                 {err && <p className="text-xs text-red-500">{err}</p>}
+                {!err && info && <p className="text-xs text-gray-500">{info}</p>}
               </div>
             </div>
           )
