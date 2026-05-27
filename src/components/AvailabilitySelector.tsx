@@ -10,6 +10,7 @@ interface AvailabilitySelectorProps {
   // When provided, only slot buttons whose code appears in any combination are shown.
   allowedCombinations?: string[][]
   title?: string
+  dayLabel?: string
 }
 
 export default function AvailabilitySelector({
@@ -21,6 +22,7 @@ export default function AvailabilitySelector({
   hideSaveButton = false,
   allowedCombinations,
   title = 'Añade disponibilidad',
+  dayLabel = 'Mañana',
 }: AvailabilitySelectorProps) {
   const usedSlots = new Set<string>()
   if (allowedCombinations) {
@@ -71,7 +73,7 @@ export default function AvailabilitySelector({
             `}
           >
             <IconSun size={24} className={activeSlot === 'day' ? 'text-blue-600' : 'text-gray-700'} />
-            <span className="text-xs font-medium">Mañana</span>
+            <span className="text-xs font-medium">{dayLabel}</span>
           </button>
         )}
 
