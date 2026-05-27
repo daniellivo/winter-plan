@@ -134,7 +134,7 @@ export default function TurnosDisponibles() {
   const { professionalId } = useAppContext()
 
   const [specialty, setSpecialty] = useState<Specialty | ''>('')
-  const [hasAccess, setHasAccess] = useState<boolean | null>(null)
+  const [allowedSpecialties, setAllowedSpecialties] = useState<Specialty[] | null>(null)
   const [currentMonth, setCurrentMonth] = useState(6) // Julio 2026 (Junio oculto)
   const [currentYear, setCurrentYear] = useState(2026)
   const [activeSlot, setActiveSlot] = useState<
@@ -186,30 +186,47 @@ export default function TurnosDisponibles() {
       .catch(err => console.error('fetchMyClaims failed:', err))
   }, [professionalId])
 
-  // Check whitelist whenever specialty changes.
+  // Load the full list of specialties this professional can access. Runs once
+  // per professionalId; the dropdown is built from this list.
   useEffect(() => {
-    if (!specialty) {
-      setHasAccess(null)
-      return
-    }
-    setHasAccess(null)
+    if (!professionalId) return
     let cancelled = false
-    async function check() {
+    async function load() {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('specialty_whitelist')
-          .select('id')
+          .select('specialty')
           .eq('professional_id', professionalId)
-          .eq('specialty', specialty as string)
-          .maybeSingle()
-        if (!cancelled) setHasAccess(data !== null)
-      } catch {
-        if (!cancelled) setHasAccess(false)
+        if (error) throw error
+        if (cancelled) return
+        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts'])
+        const allowed = Array.from(
+          new Set(
+            (data ?? [])
+              .map(r => r.specialty as Specialty)
+              .filter(s => known.has(s)),
+          ),
+        )
+        setAllowedSpecialties(allowed)
+      } catch (err) {
+        console.error('fetchAllowedSpecialties failed:', err)
+        if (!cancelled) setAllowedSpecialties([])
       }
     }
-    check()
+    load()
     return () => { cancelled = true }
-  }, [specialty, professionalId])
+  }, [professionalId])
+
+  // Auto-select when the professional only has access to one specialty.
+  useEffect(() => {
+    if (allowedSpecialties && allowedSpecialties.length === 1 && !specialty) {
+      setSpecialty(allowedSpecialties[0])
+    }
+  }, [allowedSpecialties, specialty])
+
+  const hasAccess = specialty && allowedSpecialties
+    ? allowedSpecialties.includes(specialty)
+    : null
 
   // Load inventory whenever specialty changes.
   useEffect(() => {
@@ -598,54 +615,70 @@ export default function TurnosDisponibles() {
       </header>
 
       <div className="px-4">
-        <div className="py-4">
-          <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
-            Selecciona tus turnos directamente en{' '}
-            <span className="font-semibold text-gray-800">
-              {specialty === 'sala-parts' ? 'H. Sant Pau' : 'Hospital Teknon'}
-            </span>.
-          </p>
-
-          <label className="block text-xs font-semibold text-gray-700 mb-2">Especialidad</label>
-          <select
-            value={specialty}
-            onChange={e => {
-              setSpecialty((e.target.value || '') as Specialty | '')
-              setActiveSlot(null)
-            }}
-            className="w-full py-3 px-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 text-base font-medium focus:outline-none focus:border-[#2cbeff]"
-          >
-            <option value="">Selecciona una especialidad…</option>
-            <option value="adultos">{SPECIALTY_LABEL.adultos}</option>
-            <option value="pediatria">{SPECIALTY_LABEL.pediatria}</option>
-            <option value="materno">{SPECIALTY_LABEL.materno}</option>
-            <option value="neonatos">{SPECIALTY_LABEL.neonatos}</option>
-            <option value="sala-parts">{SPECIALTY_LABEL['sala-parts']}</option>
-          </select>
-        </div>
-
-        {!specialty ? (
-          <div className="py-16 text-center">
-            <div className="text-4xl mb-4">📅</div>
-            <p className="text-gray-600 text-sm">
-              Elige una especialidad arriba para empezar a seleccionar turnos.
-            </p>
-          </div>
-        ) : hasAccess === null ? (
+        {allowedSpecialties === null ? (
           <div className="py-16 text-center">
             <p className="text-gray-400 text-sm">Verificando acceso…</p>
           </div>
-        ) : !hasAccess ? (
+        ) : allowedSpecialties.length === 0 ? (
           <div className="py-16 text-center px-6">
             <div className="text-4xl mb-4">🔒</div>
             <h2 className="text-base font-semibold text-gray-900 mb-2">
-              Sin acceso a esta especialidad
+              Sin acceso a turnos
             </h2>
             <p className="text-sm text-gray-600 leading-relaxed">
-              No tienes acceso a los turnos de esta especialidad. Contacta con el equipo de Livo para solicitar acceso.
+              No tienes acceso a ninguna especialidad. Contacta con el equipo de Livo para solicitar acceso.
             </p>
           </div>
         ) : (
+          <>
+            <div className="py-4">
+              <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
+                Selecciona tus turnos directamente en{' '}
+                <span className="font-semibold text-gray-800">
+                  {specialty === 'sala-parts' ? 'H. Sant Pau' : 'Hospital Teknon'}
+                </span>.
+              </p>
+
+              {allowedSpecialties.length > 1 && (
+                <>
+                  <label className="block text-xs font-semibold text-gray-700 mb-2">Especialidad</label>
+                  <select
+                    value={specialty}
+                    onChange={e => {
+                      setSpecialty((e.target.value || '') as Specialty | '')
+                      setActiveSlot(null)
+                    }}
+                    className="w-full py-3 px-4 rounded-xl border-2 border-gray-200 bg-white text-gray-900 text-base font-medium focus:outline-none focus:border-[#2cbeff]"
+                  >
+                    <option value="">Selecciona una especialidad…</option>
+                    {allowedSpecialties.map(sp => (
+                      <option key={sp} value={sp}>
+                        {SPECIALTY_LABEL[sp]}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
+
+            {!specialty ? (
+              <div className="py-16 text-center">
+                <div className="text-4xl mb-4">📅</div>
+                <p className="text-gray-600 text-sm">
+                  Elige una especialidad arriba para empezar a seleccionar turnos.
+                </p>
+              </div>
+            ) : !hasAccess ? (
+              <div className="py-16 text-center px-6">
+                <div className="text-4xl mb-4">🔒</div>
+                <h2 className="text-base font-semibold text-gray-900 mb-2">
+                  Sin acceso a esta especialidad
+                </h2>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  No tienes acceso a los turnos de esta especialidad. Contacta con el equipo de Livo para solicitar acceso.
+                </p>
+              </div>
+            ) : (
           <>
             <div className="bg-gray-50 rounded-xl p-4 mb-4">
               <p className="text-xs text-gray-600 leading-relaxed">
@@ -758,6 +791,8 @@ export default function TurnosDisponibles() {
                 </p>
               )}
             </div>
+          </>
+        )}
           </>
         )}
       </div>
