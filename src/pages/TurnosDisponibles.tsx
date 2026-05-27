@@ -376,7 +376,7 @@ export default function TurnosDisponibles() {
           field: FIELD_LABEL[specialty],
           start_time: times.start,
           end_time: times.end,
-          price: 100,
+          price: getDisplayPrice(date, slot),
           claimed_by: professionalId,
           claimed_at: new Date().toISOString(),
           confirmed_at: null,
@@ -586,7 +586,9 @@ export default function TurnosDisponibles() {
         <div className="py-4">
           <p className="text-gray-600 text-sm leading-relaxed mb-4 text-center">
             Selecciona tus turnos directamente en{' '}
-            <span className="font-semibold text-gray-800">Hospital Teknon</span>.
+            <span className="font-semibold text-gray-800">
+              {specialty === 'sala-parts' ? 'H. Sant Pau' : 'Hospital Teknon'}
+            </span>.
           </p>
 
           <label className="block text-xs font-semibold text-gray-700 mb-2">Especialidad</label>
