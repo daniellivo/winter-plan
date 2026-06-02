@@ -29,7 +29,7 @@ import type { Shift, MonthData } from '../types/winterPlan'
 const WEBHOOK_URL =
   'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano'
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Hospitalización Adultos',
@@ -37,6 +37,7 @@ const SPECIALTY_LABEL: Record<Specialty, string> = {
   materno: 'Teknon — Hospitalización Materno',
   neonatos: 'Teknon — Hospitalización Neonatal',
   'sala-parts': 'H. Sant Pau — Sala de partos',
+  quirofano: 'H. Torrejón — Quirófano',
 }
 
 const FIELD_LABEL: Record<Specialty, string> = {
@@ -45,6 +46,7 @@ const FIELD_LABEL: Record<Specialty, string> = {
   materno: 'Materno',
   neonatos: 'Neonatos',
   'sala-parts': 'Matronas',
+  quirofano: 'Instrumentista',
 }
 
 const UNIT_LABEL: Record<Specialty, string> = {
@@ -53,6 +55,7 @@ const UNIT_LABEL: Record<Specialty, string> = {
   materno: 'Hospitalización',
   neonatos: 'Hospitalización',
   'sala-parts': 'Sala de partos',
+  quirofano: 'Quirófano',
 }
 
 const SPECIALTY_FACILITY: Record<Specialty, string> = {
@@ -61,6 +64,13 @@ const SPECIALTY_FACILITY: Record<Specialty, string> = {
   materno: 'teknon',
   neonatos: 'teknon',
   'sala-parts': 'sant-pau',
+  quirofano: 'torrejon',
+}
+
+const FACILITY_NAME: Record<string, string> = {
+  teknon: 'Hospital Teknon',
+  'sant-pau': 'H. Sant Pau',
+  torrejon: 'H. Universitario de Torrejón',
 }
 
 const SLOT_LABEL: Record<Slot, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
@@ -135,6 +145,7 @@ export default function TurnosDisponibles() {
 
   const [specialty, setSpecialty] = useState<Specialty | ''>('')
   const [allowedSpecialties, setAllowedSpecialties] = useState<Specialty[] | null>(null)
+  const [minShiftsPerClaim, setMinShiftsPerClaim] = useState(1)
   const [currentMonth, setCurrentMonth] = useState(6) // Julio 2026 (Junio oculto)
   const [currentYear, setCurrentYear] = useState(2026)
   const [activeSlot, setActiveSlot] = useState<
@@ -155,9 +166,12 @@ export default function TurnosDisponibles() {
 
   const facility = specialty ? SPECIALTY_FACILITY[specialty] : 'teknon'
 
-  const allowedCombinations: string[][] = specialty === 'sala-parts'
-    ? [['DAY'], ['NIGHT']]
-    : [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
+  const allowedCombinations: string[][] =
+    specialty === 'sala-parts'
+      ? [['DAY'], ['NIGHT']]
+      : specialty === 'quirofano'
+      ? [['DAY'], ['EVENING'], ['DAY', 'EVENING']]
+      : [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
 
   const slotLabel = (slot: Slot): string => {
     if (specialty === 'sala-parts') return slot === 'TM' ? 'Día' : 'Noche'
@@ -167,6 +181,9 @@ export default function TurnosDisponibles() {
   const slotTime = (slot: Slot): string => {
     if (specialty === 'sala-parts') {
       return slot === 'TM' ? '09:00 – 21:15' : '21:00 – 09:15'
+    }
+    if (specialty === 'quirofano') {
+      return slot === 'TM' ? '08:00 – 15:00' : '15:00 – 22:00'
     }
     return ({ TM: '07:10 – 14:10', TT: '14:00 – 21:00', TN: '20:45 – 07:30' } as Record<Slot, string>)[slot]
   }
@@ -199,7 +216,7 @@ export default function TurnosDisponibles() {
           .eq('professional_id', professionalId)
         if (error) throw error
         if (cancelled) return
-        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts'])
+        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano'])
         const allowed = Array.from(
           new Set(
             (data ?? [])
@@ -227,6 +244,25 @@ export default function TurnosDisponibles() {
   const hasAccess = specialty && allowedSpecialties
     ? allowedSpecialties.includes(specialty)
     : null
+
+  // Load facility rule (min shifts per claim) for the active facility.
+  useEffect(() => {
+    if (!specialty) {
+      setMinShiftsPerClaim(1)
+      return
+    }
+    let cancelled = false
+    supabase
+      .from('facility_rules')
+      .select('min_shifts_per_claim')
+      .eq('facility', facility)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return
+        setMinShiftsPerClaim(data?.min_shifts_per_claim ?? 1)
+      })
+    return () => { cancelled = true }
+  }, [specialty, facility])
 
   // Load inventory whenever specialty changes.
   useEffect(() => {
@@ -331,7 +367,7 @@ export default function TurnosDisponibles() {
         label: c.slot,
         startTime: c.start_time,
         endTime: c.end_time,
-        facilityName: 'Hospital Teknon',
+        facilityName: FACILITY_NAME[c.facility] ?? 'Hospital Teknon',
         unit: c.unit,
         field: c.field,
         price: Number(c.price),
@@ -390,6 +426,10 @@ export default function TurnosDisponibles() {
             ? slot === 'TM'
               ? { start: '09:00', end: '21:15' }
               : { start: '21:00', end: '09:15' }
+            : specialty === 'quirofano'
+            ? slot === 'TM'
+              ? { start: '08:00', end: '15:00' }
+              : { start: '15:00', end: '22:00' }
             : slot === 'TM'
             ? { start: '07:10', end: '14:10' }
             : slot === 'TT'
@@ -637,9 +677,7 @@ export default function TurnosDisponibles() {
                 <span className="font-semibold text-gray-800">
                   {!specialty
                     ? 'tu hospital favorito'
-                    : specialty === 'sala-parts'
-                    ? 'H. Sant Pau'
-                    : 'Hospital Teknon'}
+                    : FACILITY_NAME[SPECIALTY_FACILITY[specialty]] ?? 'Hospital Teknon'}
                 </span>.
               </p>
 
@@ -764,6 +802,9 @@ export default function TurnosDisponibles() {
                     Has reservado{' '}
                     <span className="font-semibold text-[#2cbeff]">{claimCount}</span>{' '}
                     {claimCount === 1 ? 'turno' : 'turnos'}
+                    {minShiftsPerClaim > 1 && (
+                      <span className="text-gray-400"> · mín. {minShiftsPerClaim}</span>
+                    )}
                   </p>
                   {timeLeftMs !== null && timeLeftMs > 0 && (
                     <p className="text-xs text-amber-700 mt-1">
@@ -774,26 +815,45 @@ export default function TurnosDisponibles() {
                   )}
                 </div>
               )}
-              <button
-                onClick={() => setConfirmOpen(true)}
-                disabled={myClaims.length === 0}
-                className={`
-                  w-full py-4 rounded-full font-semibold text-white text-base
-                  flex items-center justify-center gap-2 transition-all duration-200
-                  ${myClaims.length === 0
-                    ? 'bg-gray-300 cursor-not-allowed'
-                    : 'bg-[#2cbeff] hover:bg-[#1ea8e0] active:scale-98'
-                  }
-                `}
-              >
-                <IconCheck size={22} strokeWidth={2.5} />
-                <span>Solicita tus turnos</span>
-              </button>
-              {myClaims.length === 0 && (
-                <p className="text-xs text-gray-500 text-center mt-2">
-                  Selecciona al menos un turno
-                </p>
-              )}
+              {(() => {
+                const meetsMin = claimCount >= minShiftsPerClaim
+                const buttonDisabled = claimCount === 0 || !meetsMin
+                const buttonLabel =
+                  minShiftsPerClaim > 1
+                    ? `Pedir ${minShiftsPerClaim} turnos`
+                    : 'Solicita tus turnos'
+                return (
+                  <>
+                    <button
+                      onClick={() => setConfirmOpen(true)}
+                      disabled={buttonDisabled}
+                      className={`
+                        w-full py-4 rounded-full font-semibold text-white text-base
+                        flex items-center justify-center gap-2 transition-all duration-200
+                        ${buttonDisabled
+                          ? 'bg-gray-300 cursor-not-allowed'
+                          : 'bg-[#2cbeff] hover:bg-[#1ea8e0] active:scale-98'
+                        }
+                      `}
+                    >
+                      <IconCheck size={22} strokeWidth={2.5} />
+                      <span>{buttonLabel}</span>
+                    </button>
+                    {claimCount === 0 ? (
+                      <p className="text-xs text-gray-500 text-center mt-2">
+                        {minShiftsPerClaim > 1
+                          ? `Selecciona al menos ${minShiftsPerClaim} turnos`
+                          : 'Selecciona al menos un turno'}
+                      </p>
+                    ) : !meetsMin ? (
+                      <p className="text-xs text-gray-500 text-center mt-2">
+                        Te faltan {minShiftsPerClaim - claimCount}{' '}
+                        {minShiftsPerClaim - claimCount === 1 ? 'turno' : 'turnos'} para poder pedir
+                      </p>
+                    ) : null}
+                  </>
+                )
+              })()}
             </div>
           </>
         )}

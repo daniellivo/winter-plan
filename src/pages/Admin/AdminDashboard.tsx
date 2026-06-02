@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../config/supabase'
 import { IconLogout, IconPlus, IconX } from '@tabler/icons-react'
 
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano'
 
-const SPECIALTIES: Specialty[] = ['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts']
+const SPECIALTIES: Specialty[] = ['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano']
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Adultos',
@@ -13,12 +13,25 @@ const SPECIALTY_LABEL: Record<Specialty, string> = {
   materno: 'Teknon — Materno',
   neonatos: 'Teknon — Neonatos',
   'sala-parts': 'H. Sant Pau — Sala de partos',
+  quirofano: 'H. Torrejón — Quirófano',
+}
+
+const FACILITY_LABEL: Record<string, string> = {
+  teknon: 'Hospital Teknon',
+  'sant-pau': 'H. Sant Pau',
+  torrejon: 'H. Universitario de Torrejón',
 }
 
 interface WhitelistEntry {
   id: number
   professional_id: string
   specialty: Specialty
+}
+
+interface FacilityRule {
+  id: number
+  facility: string
+  min_shifts_per_claim: number
 }
 
 // Accepts comma/semicolon/whitespace/newline/tab as separators; dedupes while preserving order.
@@ -52,6 +65,7 @@ export default function AdminDashboard() {
     materno: '',
     neonatos: '',
     'sala-parts': '',
+    quirofano: '',
   })
   const [adding, setAdding] = useState<Specialty | null>(null)
   const [removing, setRemoving] = useState<number | null>(null)
@@ -65,12 +79,29 @@ export default function AdminDashboard() {
   const [bulkResult, setBulkResult] = useState<BulkResult | null>(null)
   const [bulkError, setBulkError] = useState<string | null>(null)
 
+  // Facility rules state
+  const [rules, setRules] = useState<FacilityRule[]>([])
+  const [ruleDraft, setRuleDraft] = useState<Record<string, string>>({})
+  const [ruleSaving, setRuleSaving] = useState<string | null>(null)
+  const [ruleStatus, setRuleStatus] = useState<Record<string, 'saved' | 'error'>>({})
+
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('specialty_whitelist')
-      .select('id, professional_id, specialty')
-      .order('created_at', { ascending: true })
-    if (!error && data) setEntries(data as WhitelistEntry[])
+    const [whitelistRes, rulesRes] = await Promise.all([
+      supabase
+        .from('specialty_whitelist')
+        .select('id, professional_id, specialty')
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('facility_rules')
+        .select('id, facility, min_shifts_per_claim')
+        .order('facility', { ascending: true }),
+    ])
+    if (!whitelistRes.error && whitelistRes.data) setEntries(whitelistRes.data as WhitelistEntry[])
+    if (!rulesRes.error && rulesRes.data) {
+      const fetched = rulesRes.data as FacilityRule[]
+      setRules(fetched)
+      setRuleDraft(Object.fromEntries(fetched.map(r => [r.facility, String(r.min_shifts_per_claim)])))
+    }
     setLoading(false)
   }, [])
 
@@ -169,6 +200,29 @@ export default function AdminDashboard() {
     setBulkInput('')
     setBulkSelected(new Set())
     await load()
+  }
+
+  async function saveRule(rule: FacilityRule) {
+    const raw = ruleDraft[rule.facility] ?? ''
+    const n = Number.parseInt(raw, 10)
+    if (!Number.isFinite(n) || n < 1) {
+      setRuleStatus(prev => ({ ...prev, [rule.facility]: 'error' }))
+      return
+    }
+    if (n === rule.min_shifts_per_claim) return
+    setRuleSaving(rule.facility)
+    setRuleStatus(prev => ({ ...prev, [rule.facility]: undefined as unknown as 'saved' }))
+    const { error } = await supabase
+      .from('facility_rules')
+      .update({ min_shifts_per_claim: n, updated_at: new Date().toISOString() })
+      .eq('id', rule.id)
+    setRuleSaving(null)
+    if (error) {
+      setRuleStatus(prev => ({ ...prev, [rule.facility]: 'error' }))
+      return
+    }
+    setRules(prev => prev.map(r => (r.id === rule.id ? { ...r, min_shifts_per_claim: n } : r)))
+    setRuleStatus(prev => ({ ...prev, [rule.facility]: 'saved' }))
   }
 
   async function handleRemove(entry: WhitelistEntry) {
@@ -297,6 +351,70 @@ export default function AdminDashboard() {
                   {b.duplicates > 0 ? ` (${b.duplicates} dup)` : ''}
                 </p>
               ))}
+            </div>
+          )}
+        </section>
+
+        {/* Facility rules */}
+        <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="text-sm font-semibold text-gray-800">Reglas por hospital</h2>
+            <p className="text-xs text-gray-500">
+              Mínimo de turnos que el profesional debe seleccionar antes de poder pedir.
+            </p>
+          </div>
+
+          {rules.length === 0 ? (
+            <p className="text-xs text-gray-400 italic">Sin reglas configuradas</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {rules.map(rule => {
+                const draft = ruleDraft[rule.facility] ?? String(rule.min_shifts_per_claim)
+                const dirty = draft !== String(rule.min_shifts_per_claim)
+                const status = ruleStatus[rule.facility]
+                const saving = ruleSaving === rule.facility
+                return (
+                  <div
+                    key={rule.id}
+                    className="flex items-center justify-between gap-3 bg-gray-50 rounded-xl px-3 py-2"
+                  >
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      <span className="text-xs font-medium text-gray-800 truncate">
+                        {FACILITY_LABEL[rule.facility] ?? rule.facility}
+                      </span>
+                      <span className="text-[11px] text-gray-400 font-mono truncate">
+                        {rule.facility}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <label className="text-[11px] text-gray-500">mín. turnos</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={draft}
+                        onChange={e => {
+                          setRuleDraft(prev => ({ ...prev, [rule.facility]: e.target.value }))
+                          if (status) setRuleStatus(prev => ({ ...prev, [rule.facility]: undefined as unknown as 'saved' }))
+                        }}
+                        className="w-16 px-2 py-1 border border-gray-200 rounded-lg text-xs font-mono text-right focus:outline-none focus:ring-2 focus:ring-[#2cbeff] focus:border-transparent"
+                      />
+                      <button
+                        onClick={() => saveRule(rule)}
+                        disabled={!dirty || saving}
+                        className="px-3 py-1.5 bg-[#2cbeff] hover:bg-[#1aa8e8] text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {saving ? 'Guardando…' : 'Guardar'}
+                      </button>
+                      {status === 'saved' && !dirty && (
+                        <span className="text-[11px] text-emerald-600">Guardado</span>
+                      )}
+                      {status === 'error' && (
+                        <span className="text-[11px] text-red-500">Error</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </section>
