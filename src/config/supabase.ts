@@ -5,6 +5,9 @@ const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_pnPIgTl1tD-rRUIkeIIbFg_m5ZfF-iB
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
 
+// Hide everything before this date — turnos disponibles starts on Jun 3.
+const MIN_VISIBLE_DATE = '2026-06-03'
+
 export interface SummerPlanningRow {
   professional_id: string
   date: string
@@ -103,6 +106,7 @@ export async function fetchInventory(
     .select('date, slot, price')
     .eq('facility', facility)
     .eq('specialty', specialty)
+    .gte('date', MIN_VISIBLE_DATE)
     .is('claimed_by', null)
   if (error) {
     console.error('❌ fetchInventory failed:', error)
@@ -126,6 +130,7 @@ export async function fetchMyClaims(professionalId: string): Promise<AvailableSh
     .from('available_shifts')
     .select('*')
     .eq('claimed_by', professionalId)
+    .gte('date', MIN_VISIBLE_DATE)
   if (error) {
     console.error('❌ fetchMyClaims failed:', error)
     throw error
