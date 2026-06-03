@@ -820,7 +820,9 @@ export default function TurnosDisponibles() {
                 const buttonDisabled = claimCount === 0 || !meetsMin
                 const buttonLabel =
                   minShiftsPerClaim > 1
-                    ? `Pedir ${minShiftsPerClaim} turnos`
+                    ? claimCount > 0
+                      ? `Pedir ${claimCount} ${claimCount === 1 ? 'turno' : 'turnos'}`
+                      : `Pedir turnos`
                     : 'Solicita tus turnos'
                 return (
                   <>
