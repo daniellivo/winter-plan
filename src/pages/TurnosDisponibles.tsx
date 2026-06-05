@@ -29,7 +29,7 @@ import type { Shift, MonthData } from '../types/winterPlan'
 const WEBHOOK_URL =
   'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano' | 'uci'
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Hospitalización Adultos',
@@ -38,6 +38,7 @@ const SPECIALTY_LABEL: Record<Specialty, string> = {
   neonatos: 'Teknon — Hospitalización Neonatal',
   'sala-parts': 'H. Sant Pau — Sala de partos',
   quirofano: 'H. Torrejón — Quirófano',
+  uci: 'C. Cemtro — UCI',
 }
 
 const FIELD_LABEL: Record<Specialty, string> = {
@@ -47,6 +48,7 @@ const FIELD_LABEL: Record<Specialty, string> = {
   neonatos: 'Neonatos',
   'sala-parts': 'Matronas',
   quirofano: 'Instrumentista',
+  uci: 'Enfermería UCI',
 }
 
 const UNIT_LABEL: Record<Specialty, string> = {
@@ -56,6 +58,7 @@ const UNIT_LABEL: Record<Specialty, string> = {
   neonatos: 'Hospitalización',
   'sala-parts': 'Sala de partos',
   quirofano: 'Quirófano',
+  uci: 'UCI',
 }
 
 const SPECIALTY_FACILITY: Record<Specialty, string> = {
@@ -65,12 +68,14 @@ const SPECIALTY_FACILITY: Record<Specialty, string> = {
   neonatos: 'teknon',
   'sala-parts': 'sant-pau',
   quirofano: 'torrejon',
+  uci: 'cemtro',
 }
 
 const FACILITY_NAME: Record<string, string> = {
   teknon: 'Hospital Teknon',
   'sant-pau': 'H. Sant Pau',
   torrejon: 'H. Universitario de Torrejón',
+  cemtro: 'Clínica Cemtro',
 }
 
 const SLOT_LABEL: Record<Slot, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
@@ -171,6 +176,8 @@ export default function TurnosDisponibles() {
       ? [['DAY'], ['NIGHT']]
       : specialty === 'quirofano'
       ? [['DAY'], ['EVENING'], ['DAY', 'EVENING']]
+      : specialty === 'uci'
+      ? [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
       : [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
 
   const slotLabel = (slot: Slot): string => {
@@ -184,6 +191,9 @@ export default function TurnosDisponibles() {
     }
     if (specialty === 'quirofano') {
       return slot === 'TM' ? '08:00 – 15:00' : '15:00 – 22:00'
+    }
+    if (specialty === 'uci') {
+      return ({ TM: '08:00 – 15:00 / 08:00 – 20:00', TT: '15:00 – 22:00', TN: '20:00 – 08:00 / 22:00 – 08:00' } as Record<Slot, string>)[slot]
     }
     return ({ TM: '07:10 – 14:10', TT: '14:00 – 21:00', TN: '20:45 – 07:30' } as Record<Slot, string>)[slot]
   }
@@ -216,7 +226,7 @@ export default function TurnosDisponibles() {
           .eq('professional_id', professionalId)
         if (error) throw error
         if (cancelled) return
-        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano'])
+        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano', 'uci'])
         const allowed = Array.from(
           new Set(
             (data ?? [])
@@ -421,6 +431,8 @@ export default function TurnosDisponibles() {
           return
         }
         // Optimistic local update.
+        // For uci, the row's actual start/end can vary by date (7h vs 12h);
+        // we use the 7h defaults optimistically and re-fetch corrects them.
         const times =
           specialty === 'sala-parts'
             ? slot === 'TM'
@@ -430,6 +442,12 @@ export default function TurnosDisponibles() {
             ? slot === 'TM'
               ? { start: '08:00', end: '15:00' }
               : { start: '15:00', end: '22:00' }
+            : specialty === 'uci'
+            ? slot === 'TM'
+              ? { start: '08:00', end: '15:00' }
+              : slot === 'TT'
+              ? { start: '15:00', end: '22:00' }
+              : { start: '22:00', end: '08:00' }
             : slot === 'TM'
             ? { start: '07:10', end: '14:10' }
             : slot === 'TT'

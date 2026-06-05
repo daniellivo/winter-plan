@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../config/supabase'
 import { IconLogout, IconPlus, IconX } from '@tabler/icons-react'
 
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano' | 'uci'
 
-const SPECIALTIES: Specialty[] = ['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano']
+const SPECIALTIES: Specialty[] = ['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano', 'uci']
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Adultos',
@@ -14,12 +14,14 @@ const SPECIALTY_LABEL: Record<Specialty, string> = {
   neonatos: 'Teknon — Neonatos',
   'sala-parts': 'H. Sant Pau — Sala de partos',
   quirofano: 'H. Torrejón — Quirófano',
+  uci: 'C. Cemtro — UCI',
 }
 
 const FACILITY_LABEL: Record<string, string> = {
   teknon: 'Hospital Teknon',
   'sant-pau': 'H. Sant Pau',
   torrejon: 'H. Universitario de Torrejón',
+  cemtro: 'Clínica Cemtro',
 }
 
 interface WhitelistEntry {
@@ -66,6 +68,7 @@ export default function AdminDashboard() {
     neonatos: '',
     'sala-parts': '',
     quirofano: '',
+    uci: '',
   })
   const [adding, setAdding] = useState<Specialty | null>(null)
   const [removing, setRemoving] = useState<number | null>(null)
