@@ -157,7 +157,7 @@ export default function TurnosDisponibles() {
     'all' | 'day' | 'evening' | 'night' | 'delete' | null
   >(null)
   const [inventoryByDate, setInventoryByDate] = useState<
-    Map<string, Map<Slot, { freeCount: number; price: number }>>
+    Map<string, Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>>
   >(new Map())
   const [myClaims, setMyClaims] = useState<AvailableShiftRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -185,7 +185,14 @@ export default function TurnosDisponibles() {
     return SLOT_LABEL[slot]
   }
 
-  const slotTime = (slot: Slot): string => {
+  const slotTime = (slot: Slot, date?: string): string => {
+    // Prefer the actual times from inventory or my claims when we know the date.
+    if (date) {
+      const inv = inventoryByDate.get(date)?.get(slot)
+      if (inv?.start_time && inv?.end_time) return `${inv.start_time} – ${inv.end_time}`
+      const claim = myClaims.find(c => c.date === date && c.slot === slot && c.specialty === specialty)
+      if (claim?.start_time && claim?.end_time) return `${claim.start_time} – ${claim.end_time}`
+    }
     if (specialty === 'sala-parts') {
       return slot === 'TM' ? '09:00 – 21:15' : '21:00 – 09:15'
     }
@@ -193,7 +200,7 @@ export default function TurnosDisponibles() {
       return slot === 'TM' ? '08:00 – 15:00' : '15:00 – 22:00'
     }
     if (specialty === 'uci') {
-      return ({ TM: '08:00 – 15:00 / 08:00 – 20:00', TT: '15:00 – 22:00', TN: '20:00 – 08:00 / 22:00 – 08:00' } as Record<Slot, string>)[slot]
+      return ({ TM: '08:00 – 15:00', TT: '15:00 – 22:00', TN: '20:00 – 08:00' } as Record<Slot, string>)[slot]
     }
     return ({ TM: '07:10 – 14:10', TT: '14:00 – 21:00', TN: '20:45 – 07:30' } as Record<Slot, string>)[slot]
   }
@@ -283,10 +290,10 @@ export default function TurnosDisponibles() {
     setLoading(true)
     fetchInventory(facility, specialty)
       .then(entries => {
-        const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
-        entries.forEach(({ date, slot, freeCount, price }) => {
-          const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>()
-          inner.set(slot, { freeCount, price })
+        const map = new Map<string, Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>>()
+        entries.forEach(({ date, slot, freeCount, price, start_time, end_time }) => {
+          const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>()
+          inner.set(slot, { freeCount, price, start_time, end_time })
           map.set(date, inner)
         })
         setInventoryByDate(map)
@@ -332,10 +339,10 @@ export default function TurnosDisponibles() {
     if (specialty) {
       fetchInventory(facility, specialty)
         .then(entries => {
-          const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
-          entries.forEach(({ date, slot, freeCount, price }) => {
-            const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>()
-            inner.set(slot, { freeCount, price })
+          const map = new Map<string, Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>>()
+          entries.forEach(({ date, slot, freeCount, price, start_time, end_time }) => {
+            const inner = map.get(date) ?? new Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>()
+            inner.set(slot, { freeCount, price, start_time, end_time })
             map.set(date, inner)
           })
           setInventoryByDate(map)
@@ -420,10 +427,10 @@ export default function TurnosDisponibles() {
           setErrorMessage('Ese turno se acaba de agotar.')
           // Refresh inventory to reflect reality.
           fetchInventory(facility, specialty).then(entries => {
-            const map = new Map<string, Map<Slot, { freeCount: number; price: number }>>()
-            entries.forEach(({ date: d, slot: s, freeCount, price }) => {
-              const inner = map.get(d) ?? new Map<Slot, { freeCount: number; price: number }>()
-              inner.set(s, { freeCount, price })
+            const map = new Map<string, Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>>()
+            entries.forEach(({ date: d, slot: s, freeCount, price, start_time, end_time }) => {
+              const inner = map.get(d) ?? new Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>()
+              inner.set(s, { freeCount, price, start_time, end_time })
               map.set(d, inner)
             })
             setInventoryByDate(map)
@@ -477,7 +484,7 @@ export default function TurnosDisponibles() {
         if (appended) {
           setInventoryByDate(prev => {
             const map = new Map(prev)
-            const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>())
+            const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>())
             const entry = inner.get(slot)
             if (entry) inner.set(slot, { ...entry, freeCount: Math.max(0, entry.freeCount - 1) })
             map.set(date, inner)
@@ -512,10 +519,12 @@ export default function TurnosDisponibles() {
         setMyClaims(prev => prev.filter(c => c.id !== mine.id))
         setInventoryByDate(prev => {
           const map = new Map(prev)
-          const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number }>())
+          const inner = new Map(map.get(date) ?? new Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>())
           const entry = inner.get(slot)
           const price = entry?.price ?? Number(mine.price)
-          inner.set(slot, { freeCount: (entry?.freeCount ?? 0) + 1, price })
+          const start_time = entry?.start_time ?? mine.start_time
+          const end_time = entry?.end_time ?? mine.end_time
+          inner.set(slot, { freeCount: (entry?.freeCount ?? 0) + 1, price, start_time, end_time })
           map.set(date, inner)
           return map
         })
@@ -912,13 +921,13 @@ export default function TurnosDisponibles() {
 interface DayShiftsModalProps {
   date: string
   specialty: Specialty
-  inventory: Map<Slot, { freeCount: number; price: number }>
+  inventory: Map<Slot, { freeCount: number; price: number; start_time: string; end_time: string }>
   myClaims: AvailableShiftRow[]
   pendingKey: string | null
   onToggle: (slot: Slot) => void
   onClose: () => void
   slotLabel: (slot: Slot) => string
-  slotTime: (slot: Slot) => string
+  slotTime: (slot: Slot, date?: string) => string
   getDisplayPrice: (date: string, slot: Slot) => number
 }
 
@@ -987,7 +996,7 @@ function DayShiftsModal({
                       <span className="text-sm font-semibold text-gray-900">
                         {slotLabel(slot)}
                       </span>
-                      <span className="text-sm text-gray-600">· {slotTime(slot)}</span>
+                      <span className="text-sm text-gray-600">· {slotTime(slot, date)}</span>
                     </div>
                     <p className="text-sm text-gray-700">
                       {UNIT_LABEL[specialty]} · {FIELD_LABEL[specialty]}

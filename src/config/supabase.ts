@@ -94,6 +94,8 @@ export interface InventoryEntry {
   slot: Slot
   freeCount: number
   price: number
+  start_time: string
+  end_time: string
 }
 
 export async function fetchInventory(
@@ -103,7 +105,7 @@ export async function fetchInventory(
   await releaseExpiredHolds()
   const { data, error } = await supabase
     .from('available_shifts')
-    .select('date, slot, price')
+    .select('date, slot, price, start_time, end_time')
     .eq('facility', facility)
     .eq('specialty', specialty)
     .gte('date', MIN_VISIBLE_DATE)
@@ -112,15 +114,22 @@ export async function fetchInventory(
     console.error('❌ fetchInventory failed:', error)
     throw error
   }
-  const agg = new Map<string, { freeCount: number; price: number }>()
-  ;(data ?? []).forEach((r: { date: string; slot: Slot; price: number | string }) => {
-    const k = `${r.date}|${r.slot}`
+  // Group by (date, slot, start_time, end_time, price) so distinct turno
+  // variants (e.g. 7h vs 12h sharing the same slot) appear as separate entries.
+  const agg = new Map<string, { freeCount: number; price: number; start_time: string; end_time: string }>()
+  ;(data ?? []).forEach((r: { date: string; slot: Slot; price: number | string; start_time: string; end_time: string }) => {
+    const k = `${r.date}|${r.slot}|${r.start_time}|${r.end_time}|${r.price}`
     const prev = agg.get(k)
-    agg.set(k, { freeCount: (prev?.freeCount ?? 0) + 1, price: Number(r.price) })
+    agg.set(k, {
+      freeCount: (prev?.freeCount ?? 0) + 1,
+      price: Number(r.price),
+      start_time: r.start_time,
+      end_time: r.end_time,
+    })
   })
-  return Array.from(agg.entries()).map(([k, { freeCount, price }]) => {
+  return Array.from(agg.entries()).map(([k, { freeCount, price, start_time, end_time }]) => {
     const [date, slot] = k.split('|')
-    return { date, slot: slot as Slot, freeCount, price }
+    return { date, slot: slot as Slot, freeCount, price, start_time, end_time }
   })
 }
 
