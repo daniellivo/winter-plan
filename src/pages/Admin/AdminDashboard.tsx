@@ -238,6 +238,17 @@ export default function AdminDashboard() {
     await load()
   }
 
+  async function handleRemoveAll(specialty: Specialty) {
+    const list = entries.filter(e => e.specialty === specialty)
+    if (list.length === 0) return
+    const ok = window.confirm(
+      `¿Quitar los ${list.length} accesos de ${SPECIALTY_LABEL[specialty]}? Esta acción no se puede deshacer.`,
+    )
+    if (!ok) return
+    await supabase.from('specialty_whitelist').delete().eq('specialty', specialty)
+    await load()
+  }
+
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate('/admin', { replace: true })
@@ -439,7 +450,17 @@ export default function AdminDashboard() {
               <div key={specialty} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
                 <div className="flex items-baseline justify-between gap-2">
                   <h2 className="text-sm font-semibold text-gray-800">{SPECIALTY_LABEL[specialty]}</h2>
-                  <span className="text-xs text-gray-400">{list.length}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">{list.length}</span>
+                    {list.length > 0 && (
+                      <button
+                        onClick={() => handleRemoveAll(specialty)}
+                        className="text-[11px] text-red-500 hover:text-red-700 transition-colors"
+                      >
+                        Quitar todos
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Professional ID list */}
