@@ -415,6 +415,32 @@ export default function TurnosDisponibles() {
   const currentMonthData = calendarMonths.find(m => m.month === currentMonthKey)
   const editingHack = useMemo(() => new Map<string, Set<string>>(), [])
 
+  // Months that have either inventory or claims for the active specialty.
+  const availableMonths = useMemo<{ month: number; year: number }[]>(() => {
+    if (!specialty) return []
+    const set = new Set<string>()
+    inventoryByDate.forEach((_, date) => set.add(date.slice(0, 7)))
+    myClaimsForSpecialty.forEach(c => set.add(c.date.slice(0, 7)))
+    return Array.from(set)
+      .sort()
+      .map(key => {
+        const [y, m] = key.split('-').map(Number)
+        return { month: m - 1, year: y }
+      })
+  }, [inventoryByDate, myClaimsForSpecialty, specialty])
+
+  // When the available months change (specialty switch, inventory load),
+  // snap the current month to the first available one if the current pick
+  // has no data.
+  useEffect(() => {
+    if (availableMonths.length === 0) return
+    const has = availableMonths.some(m => m.month === currentMonth && m.year === currentYear)
+    if (!has) {
+      setCurrentMonth(availableMonths[0].month)
+      setCurrentYear(availableMonths[0].year)
+    }
+  }, [availableMonths, currentMonth, currentYear])
+
   const isClaimedByMe = useCallback(
     (date: string, slot: Slot) =>
       myClaimsForSpecialty.some(c => c.date === date && c.slot === slot),
@@ -801,33 +827,39 @@ export default function TurnosDisponibles() {
               </div>
             )}
 
-            <MonthSelector
-              month={currentMonth}
-              year={currentYear}
-              onPrevious={() => {
-                if (currentMonth === 0) {
-                  setCurrentMonth(11)
-                  setCurrentYear(currentYear - 1)
-                } else setCurrentMonth(currentMonth - 1)
-              }}
-              onNext={() => {
-                if (currentMonth === 11) {
-                  setCurrentMonth(0)
-                  setCurrentYear(currentYear + 1)
-                } else setCurrentMonth(currentMonth + 1)
-              }}
-              canGoPrevious={!(currentYear === 2026 && currentMonth === 6)}
-              canGoNext={!(currentYear === 2026 && currentMonth === 8)}
-              months={[
-                { month: 6, year: 2026 },
-                { month: 7, year: 2026 },
-                { month: 8, year: 2026 },
-              ]}
-              onSelectMonth={(m, y) => {
-                setCurrentMonth(m)
-                setCurrentYear(y)
-              }}
-            />
+            {availableMonths.length > 0 && (
+              <MonthSelector
+                month={currentMonth}
+                year={currentYear}
+                onPrevious={() => {
+                  const i = availableMonths.findIndex(m => m.month === currentMonth && m.year === currentYear)
+                  if (i > 0) {
+                    setCurrentMonth(availableMonths[i - 1].month)
+                    setCurrentYear(availableMonths[i - 1].year)
+                  }
+                }}
+                onNext={() => {
+                  const i = availableMonths.findIndex(m => m.month === currentMonth && m.year === currentYear)
+                  if (i >= 0 && i < availableMonths.length - 1) {
+                    setCurrentMonth(availableMonths[i + 1].month)
+                    setCurrentYear(availableMonths[i + 1].year)
+                  }
+                }}
+                canGoPrevious={(() => {
+                  const i = availableMonths.findIndex(m => m.month === currentMonth && m.year === currentYear)
+                  return i > 0
+                })()}
+                canGoNext={(() => {
+                  const i = availableMonths.findIndex(m => m.month === currentMonth && m.year === currentYear)
+                  return i >= 0 && i < availableMonths.length - 1
+                })()}
+                months={availableMonths}
+                onSelectMonth={(m, y) => {
+                  setCurrentMonth(m)
+                  setCurrentYear(y)
+                }}
+              />
+            )}
 
             <Calendar
               year={currentYear}
