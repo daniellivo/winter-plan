@@ -29,7 +29,7 @@ import type { Shift, MonthData } from '../types/winterPlan'
 const WEBHOOK_URL =
   'https://livomarketing.app.n8n.cloud/webhook/981394b5-166b-4ecd-ad13-340406449379'
 
-type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano' | 'uci'
+type Specialty = 'adultos' | 'pediatria' | 'materno' | 'neonatos' | 'sala-parts' | 'quirofano' | 'uci' | 'med-quirurgica'
 
 const SPECIALTY_LABEL: Record<Specialty, string> = {
   adultos: 'Teknon — Hospitalización Adultos',
@@ -39,6 +39,7 @@ const SPECIALTY_LABEL: Record<Specialty, string> = {
   'sala-parts': 'H. Sant Pau — Sala de partos',
   quirofano: 'H. Torrejón — Quirófano',
   uci: 'C. Cemtro — UCI',
+  'med-quirurgica': 'Dexeus — Hospitalización Médico-quirúrgica',
 }
 
 const FIELD_LABEL: Record<Specialty, string> = {
@@ -49,6 +50,7 @@ const FIELD_LABEL: Record<Specialty, string> = {
   'sala-parts': 'Matronas',
   quirofano: 'Instrumentista',
   uci: 'Enfermería UCI',
+  'med-quirurgica': '',
 }
 
 const UNIT_LABEL: Record<Specialty, string> = {
@@ -59,6 +61,7 @@ const UNIT_LABEL: Record<Specialty, string> = {
   'sala-parts': 'Sala de partos',
   quirofano: 'Quirófano',
   uci: 'UCI',
+  'med-quirurgica': 'Hospitalización Médico-quirúrgica',
 }
 
 const SPECIALTY_FACILITY: Record<Specialty, string> = {
@@ -69,6 +72,7 @@ const SPECIALTY_FACILITY: Record<Specialty, string> = {
   'sala-parts': 'sant-pau',
   quirofano: 'torrejon',
   uci: 'cemtro',
+  'med-quirurgica': 'dexeus',
 }
 
 const FACILITY_NAME: Record<string, string> = {
@@ -76,6 +80,7 @@ const FACILITY_NAME: Record<string, string> = {
   'sant-pau': 'H. Sant Pau',
   torrejon: 'H. Universitario de Torrejón',
   cemtro: 'Clínica Cemtro',
+  dexeus: 'Hospital Universitari Dexeus',
 }
 
 const SLOT_LABEL: Record<Slot, string> = { TM: 'Mañana', TT: 'Tarde', TN: 'Noche' }
@@ -178,6 +183,8 @@ export default function TurnosDisponibles() {
       ? [['DAY'], ['EVENING'], ['DAY', 'EVENING']]
       : specialty === 'uci'
       ? [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
+      : specialty === 'med-quirurgica'
+      ? [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
       : [['DAY'], ['EVENING'], ['NIGHT'], ['DAY', 'EVENING']]
 
   const slotLabel = (slot: Slot): string => {
@@ -201,6 +208,9 @@ export default function TurnosDisponibles() {
     }
     if (specialty === 'uci') {
       return ({ TM: '08:00 – 15:00', TT: '15:00 – 22:00', TN: '20:00 – 08:00' } as Record<Slot, string>)[slot]
+    }
+    if (specialty === 'med-quirurgica') {
+      return ({ TM: '07:00 – 14:10', TT: '14:00 – 21:10', TN: '21:00 – 07:15' } as Record<Slot, string>)[slot]
     }
     return ({ TM: '07:10 – 14:10', TT: '14:00 – 21:00', TN: '20:45 – 07:30' } as Record<Slot, string>)[slot]
   }
@@ -233,7 +243,7 @@ export default function TurnosDisponibles() {
           .eq('professional_id', professionalId)
         if (error) throw error
         if (cancelled) return
-        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano', 'uci'])
+        const known = new Set<Specialty>(['adultos', 'pediatria', 'materno', 'neonatos', 'sala-parts', 'quirofano', 'uci', 'med-quirurgica'])
         const allowed = Array.from(
           new Set(
             (data ?? [])
@@ -455,6 +465,12 @@ export default function TurnosDisponibles() {
               : slot === 'TT'
               ? { start: '15:00', end: '22:00' }
               : { start: '22:00', end: '08:00' }
+            : specialty === 'med-quirurgica'
+            ? slot === 'TM'
+              ? { start: '07:00', end: '14:10' }
+              : slot === 'TT'
+              ? { start: '14:00', end: '21:10' }
+              : { start: '21:00', end: '07:15' }
             : slot === 'TM'
             ? { start: '07:10', end: '14:10' }
             : slot === 'TT'
@@ -999,7 +1015,10 @@ function DayShiftsModal({
                       <span className="text-sm text-gray-600">· {slotTime(slot, date)}</span>
                     </div>
                     <p className="text-sm text-gray-700">
-                      {UNIT_LABEL[specialty]} · {FIELD_LABEL[specialty]}
+                      {UNIT_LABEL[specialty]}
+                      {FIELD_LABEL[specialty] && (
+                        <> · {FIELD_LABEL[specialty]}</>
+                      )}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <p className="text-sm font-semibold text-green-600">{getDisplayPrice(date, slot)}€</p>
