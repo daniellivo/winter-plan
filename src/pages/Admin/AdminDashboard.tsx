@@ -280,7 +280,7 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="sticky top-0 z-10 bg-white border-b border-gray-100">
-        <div className="flex items-center justify-between h-12 px-4 max-w-5xl mx-auto">
+        <div className="flex items-center justify-between h-12 px-4 max-w-7xl mx-auto">
           <h1 className="text-base font-semibold text-gray-900">Whitelist de acceso</h1>
           <button
             onClick={handleSignOut}
@@ -292,7 +292,7 @@ export default function AdminDashboard() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-6 flex flex-col gap-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8 flex flex-col gap-6">
         {/* Global bulk panel */}
         <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-4">
           <div className="flex items-baseline justify-between gap-3">
@@ -437,7 +437,7 @@ export default function AdminDashboard() {
         </section>
 
         {/* Per-specialty grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {SPECIALTIES.map(specialty => {
             const list = bySpecialty(specialty)
             const isAdding = adding === specialty
