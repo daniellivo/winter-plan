@@ -24,6 +24,11 @@ html, body {
   position: relative;
 }
 
+/* Admin (desktop): allow full width so the dashboard breathes. */
+body.admin-fullwidth #root {
+  max-width: 100%;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

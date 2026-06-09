@@ -113,6 +113,12 @@ export default function AdminDashboard() {
 
   useEffect(() => { load() }, [load])
 
+  // Lift the mobile-only #root max-width while admin is mounted.
+  useEffect(() => {
+    document.body.classList.add('admin-fullwidth')
+    return () => document.body.classList.remove('admin-fullwidth')
+  }, [])
+
   const bulkIds = useMemo(() => parseIds(bulkInput), [bulkInput])
 
   async function handleAdd(specialty: Specialty) {
