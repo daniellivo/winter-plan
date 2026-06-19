@@ -1,19 +1,39 @@
 <!DOCTYPE html>
+<!-- Build: 2024-12-02T18:00 -->
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>❄️</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#2cbeff" />
     <title>Plan de Invierno - Livo</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="/winter-plan/assets/index-C6pfyBQP.js"></script>
-    <link rel="stylesheet" crossorigin href="/winter-plan/assets/index-B7gYxUOP.css">
+    <script type="module" crossorigin src="/winter-plan/assets/index-dwgZnT98.js"></script>
+    <link rel="stylesheet" crossorigin href="/winter-plan/assets/index-CmZqcWZ8.css">
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading indicator - will be replaced by React -->
+      <div id="initial-loader" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: Inter, system-ui, sans-serif;">
+        <div style="text-align: center;">
+          <div style="font-size: 48px; margin-bottom: 16px;">🏖️</div>
+          <p style="color: #666; font-size: 14px;">Cargando Plan de Invierno...</p>
+        </div>
+      </div>
+    </div>
+    <script>
+      // Fallback: if JavaScript fails to load after 10 seconds, show error
+      setTimeout(function() {
+        var loader = document.getElementById('initial-loader');
+        if (loader && loader.parentElement.children.length === 1) {
+          loader.innerHTML = '<div style="text-align: center; padding: 20px;"><div style="font-size: 48px; margin-bottom: 16px;">⚠️</div><p style="color: #666; font-size: 14px; margin-bottom: 16px;">Error al cargar la aplicación.</p><button onclick="location.reload()" style="padding: 12px 24px; background: #2cbeff; color: white; border: none; border-radius: 999px; font-weight: 600; cursor: pointer;">Reintentar</button></div>';
+        }
+      }, 10000);
+    </script>
   </body>
 </html>
 
+<!-- Deploy Tue Dec  2 20:08:15 CET 2025 -->
+<!-- Force deploy Tue Dec  9 16:47:14 CET 2025 -->
